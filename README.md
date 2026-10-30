@@ -81,6 +81,22 @@ git commit -m "Added the configuration parser logic"
 
 (2: ```Git add .``` is the equivalent of selecting the "plus" or adding a file to be included in the commit. Use . to add the local directory, or the filename for a specific file)
 
+#### Setting your user and email
+Before you make a commit, command-line git wants to know who you are. For our purposes in a private repo, this would be fine to use a regular email and name. However, best practice is to not release these publicly on the internet.
+
+My paranoid self likes to do things the safe way, by using my github username as my commit name, and setting my email to my github private email address.
+
+You can locate your github email address under Settings > Emails and looking for the private email address in the bottom box. I've provided a screenshot.
+
+<img width="947" height="165" alt="image" src="https://github.com/user-attachments/assets/c03ee8b2-53cb-48e5-bb66-6ed3bd0a056f" />
+
+Once you have the email, set your name and email as follows (**DO NOT COPY**, this includes my email and user as an example):
+```
+git config --global user.email "99298563+Gredrah@users.noreply.github.com"
+git config --global user.name "Gredrah"
+```
+You only need to do this once per user per system.
+
 #### Push Your Updates to GitHub
 Send your committed code to the cloud. If this is the very first time pushing this branch, you need to set the upstream link. Every time after that, you're clear after checking out your specific branch to work on.
 
