@@ -103,3 +103,8 @@ When a feature you're working on is at a stage you want it in the main branch:
     Click Create pull request.
 
 Once your PR is open, the team can review the code, and we will merge it into main together.
+
+#### Testing Environment
+If you want a clean environment to test it in, you can use the lab machines I've configured at [guac.gredra.com](https://guac.gredra.com)
+
+Sign in with your UFV email and you should have a free system I can reset anytime if anything goes wrong. Let me know if they aren't running and you need one.
