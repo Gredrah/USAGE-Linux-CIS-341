@@ -1,6 +1,7 @@
 # USAGE-Linux-CIS-341
 USAGE application project for Linux and CIS 341 (System Administration)
 
+```text
 USAGE-daemon/
 ├── config
 │   ├── USAGE.conf                     # Default configuration file
@@ -20,3 +21,4 @@ USAGE-daemon/
 ├── .gitignore                         # Add any undesired files here, they will be excluded from upload
 ├── Makefile                           # If necessary / desired
 └── README.md                          # Quickstart, project overview
+```
