@@ -4,8 +4,8 @@ USAGE application project for Linux and CIS 341 (System Administration)
 ```text
 USAGE-daemon/
 ├── config
-│   ├── USAGE.conf                     # Default configuration file
-│   └── USAGE.conf.example             # Fully documented template
+│   ├── sysaudit.cfg                     # Default configuration file
+│   └── sysaudit.cfg.example             # Fully documented template
 ├── cron/                              # Automated cron jobs related to the system
 ├── deploy/                            # The "installation" folder that contains set up scripts.
 │   └── install.sh                     # Automated deploy script creating dirs & users, "run once" philosophy
