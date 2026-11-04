@@ -4,8 +4,8 @@ USAGE application project for Linux and CIS 341 (System Administration)
 ```text
 USAGE-daemon/
 ├── config
-│   ├── USAGE.conf                     # Default configuration file
-│   └── USAGE.conf.example             # Fully documented template
+│   ├── sysaudit.cfg                     # Default configuration file
+│   └── sysaudit.cfg.example             # Fully documented template
 ├── cron/                              # Automated cron jobs related to the system
 ├── deploy/                            # The "installation" folder that contains set up scripts.
 │   └── install.sh                     # Automated deploy script creating dirs & users, "run once" philosophy
@@ -68,6 +68,17 @@ git checkout -b feature/your-feature-name
 If you already created it previously, just switch to it without the -b:
 ```
 git checkout feature/your-feature-name
+```
+To update your branch to match main, perform the following steps:
+```
+# Switch to your feature branch
+git checkout feature/your-feature-name
+
+# Fetch the latest changes from the remote repository
+git fetch origin
+
+# Merge origin/main into your branch
+git merge origin/main
 ```
 
 #### Write Code and Commit
