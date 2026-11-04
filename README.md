@@ -3,13 +3,14 @@ USAGE application project for Linux and CIS 341 (System Administration)
 
 ```text
 USAGE-daemon/
-├── config
+├── config/
 │   ├── sysaudit.cfg                     # Default configuration file
 │   └── sysaudit.cfg.example             # Fully documented template
 ├── cron/                              # Automated cron jobs related to the system
 ├── deploy/                            # The "installation" folder that contains set up scripts.
 │   └── install.sh                     # Automated deploy script creating dirs & users, "run once" philosophy
 |                                      # Potentially more files relating to user set up due to our modular assignment of responsibility
+├── audit/                             # Log files as per project instructions
 ├── docs/                              # "Presentation"/Docs
 │   ├── ARCHITECTURE.?                 # Component diagrams, data flow, pipeline maps
 │   ├── BOTTLENECKS.?                  # Performance profiling & optimization analysis
