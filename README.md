@@ -80,6 +80,11 @@ git fetch origin
 # Merge origin/main into your branch
 git merge origin/main
 ```
+#### Saving your feature branch to github, and pulling an existing branch
+If you want to pull someone else's (or one I created) branch, run the following command, replacing branch name with the name of a branch (ex. feature/testing).
+```
+git pull origin branch-name
+```
 
 #### Write Code and Commit
 Write your code, test it locally, and save your files. When you have a working chunk of code, stage and commit it:
