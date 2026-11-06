@@ -1,0 +1,15 @@
+
+[Unit]
+Description=System Health Monitor & Security Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=auditmanager
+ExecStart=/usr/local/bin/sysaudit.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+

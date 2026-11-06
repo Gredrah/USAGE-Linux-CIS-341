@@ -1,0 +1,14 @@
+
+[Unit]
+Description=Timer for System Health Monitor and Security Daemon
+Requires=sysaudit.service
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=3d
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+
