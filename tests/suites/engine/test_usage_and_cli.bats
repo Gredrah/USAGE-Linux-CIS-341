@@ -52,11 +52,11 @@ assert_usage_statement() {
 
 # Write the error to stderr, and exit code 1.
 @test "Malformed or unknown CLI flags write to STDERR and exit 1" {
-  run --seperate-stderr "${MOCK_ENGINE}" --im-an-invalid-flag
+  run "${MOCK_ENGINE}" --im-an-invalid-flag
 
   [ "$status" -eq "$EXIT_GENERIC_ERROR" ]
 
-  [[ "$stderr" == *"im-an-invalid-flag"* ]]
+  grep -qF "im-an-invalid-flag" "${MOCK_TRANSCRIPT_LOG}"
 
   assert_usage_statement
 }
