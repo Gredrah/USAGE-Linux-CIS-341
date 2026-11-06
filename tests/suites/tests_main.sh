@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 runall() {
-  bats tests/engine/ tests/access/ tests/daemon
+  bats engine/ access/ daemon/
 }
 
 usage() {
@@ -12,11 +12,11 @@ usage() {
 set -e
 if [[ $# -eq 1 ]]; then
   if [[ $1 == engine ]]; then
-    bats tests/engine/
+    bats engine/
   elif [[ $1 == access ]]; then
-    bats tests/access/
+    bats access/
   elif [[ $1 == daemon ]]; then
-    bats tests/daemon/
+    bats daemon/
   elif [[ $1 == all ]]; then
     runall
   else
