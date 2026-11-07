@@ -8,6 +8,13 @@ export EXIT_CONFIG_MISSING=3
 export EXIT_INVALID_WORKSPACE=4
 export EXIT_DISK_MAX_CAP=5
 
+# Mock CFG Variables
+MOCK_WARN_DISK="100"
+MOCK_MAX_DISK="150"
+MOCK_SCAN_INTERVAL="60"
+MOCK_INTERVAL_DAYS="3"
+MOCK_RETENTION_DAYS="14"
+
 # Common set up helper
 test_setup() {
   # Filesystem set up in bats tmpdir
@@ -16,7 +23,7 @@ test_setup() {
   export MOCK_ROOT="${BATS_TEST_TMPDIR}"
   # Sets project root to the directory above /tests/ (real root)
   export PROJECT_ROOT
-  PROJECT_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+  PROJECT_ROOT="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
 
   # cfg, Log, src dir
   export MOCK_LOG_DIR="${MOCK_ROOT}/var/log/"
@@ -29,6 +36,7 @@ test_setup() {
   export MOCK_CFG="${MOCK_ROOT}/config/sysaudit.cfg"
 
   # make directory
+
   mkdir -p "${MOCK_LOG_DIR}" "${MOCK_CFG_DIR}" "${MOCK_AUDIT_DIR}" "${MOCK_SRC}"
 
   # Copy engine to test directory
@@ -39,11 +47,11 @@ test_setup() {
   cat <<EOF >"${MOCK_CFG}"
 AUDIT_DIR=${MOCK_AUDIT_DIR}
 LOG_FILE=${MOCK_TRANSCRIPT_LOG}
-WARN_DISK_MB=100
-MAX_DISK_MB=150
-SCAN_INTERVAL=60
-CLEANUP_INTERVAL_DAYS=3
-ARCHIVE_RETENTION_DAYS=14
+WARN_DISK_MB=${MOCK_WARN_DISK}
+MAX_DISK_MB=${MOCK_MAX_DISK}
+SCAN_INTERVAL=${MOCK_SCAN_INTERVAL}
+CLEANUP_INTERVAL_DAYS=${MOCK_INTERVAL_DAYS}
+ARCHIVE_RETENTION_DAYS=${MOCK_RETENTION_DAYS}
 EOF
 
   # enters the user as our fake auditmanager
