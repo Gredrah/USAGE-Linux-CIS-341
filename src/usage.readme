@@ -1,0 +1,63 @@
+================================================================================ 
+USAGE: System Health Monitor & Security Auditing Daemon (sysaudit.sh) 
+================================================================================ 
+SYNOPSIS
+  sysaudit.sh [OPTIONS] DESCRIPTION Detached Linux system health and security auditing 
+  daemon. Executes only under the 'auditmanager' security context to generate raw 
+  *.audit diagnostics, compress historical records, prune expired archives (>14 days), 
+  and enforce workspace disk capacity boundaries.
+-------------------------------------------------------------------------------- 
+PARAMETER OPTIONS (CLI FLAGS & PRECEDENCE OVERRIDES) 
+--------------------------------------------------------------------------------
+  -h, --help Display this interactive USAGE manual and exit 0. -r, --run, --scan Run a 
+  single foreground scan & maintenance pass. -d, --daemon Start continuous detached 
+  background polling loop. -c, --config <path> Override default sysaudit.cfg file 
+  location. -l, --log <file> Override LOG_FILE self-monitoring transcript path. -w, 
+  --warn-limit <MB> Override CEILING_LIMIT_MB warning threshold (MB). -m, --max-limit 
+  <MB> Override MAX_DISK_MB critical termination limit (MB). -u, --delegate <username> 
+  Delegate execution and workspace group permissions
+                            to an alternate local Linux user account. 
+-------------------------------------------------------------------------------- 
+COPY-PASTEABLE EXECUTION EXAMPLES 
+--------------------------------------------------------------------------------
+  # Display this usage documentation:
+  ./sysaudit.sh --help
+  # Execute a standard maintenance and compression pass using sysaudit.cfg:
+  sudo -u auditmanager ./sysaudit.sh --run
+  # Override target workspace and warning ceiling (example 80MB) for a single run:
+  sudo -u auditmanager ./sysaudit.sh --run --target /course_project/audit/ 
+  --warn-limit 80
+  # Delegate workspace and execution access to local user 'steve_accounting':
+  sudo -u auditmanager ./sysaudit.sh --delegate steve_accounting 
+-------------------------------------------------------------------------------- 
+CONFIGURATION FILE SCHEMA & LAYOUT (sysaudit.cfg) 
+--------------------------------------------------------------------------------
+  Format: Clean key=value pairs without spaces around '='. Location: 
+  ./config/sysaudit.cfg Schema Dictionary:
+    TARGET_FOLDER=/course_project/audit/ # Workspace directory (string) 
+    LOG_FILE=/var/log/sysaudit_daemon.log # Transcript log path (string) 
+    CEILING_LIMIT_MB=100 # Warning baseline in MB (int) MAX_DISK_MB=150 # Critical 
+    disk cutoff in MB (int) RETENTION_WEEKS=2 # Archive pruning lifetime (int) 
+    SCAN_INTERVAL=60 # Daemon sleep cycle in sec (int)
+-------------------------------------------------------------------------------- 
+SAMPLE OUTPUT LOGS, METRICS STRINGS & CONSOLE WARNINGS 
+--------------------------------------------------------------------------------
+  Self-Monitoring Transcript Entries (/var/log/sysaudit_daemon.log): [INFO] 
+    2026-11-06T00:00:01Z - Daemon scan loop initialized (interval: 60s). [INFO] 
+    2026-11-06T00:00:02Z - Found 4 raw audit files. Packaging into archive. [INFO] 
+    2026-11-06T00:00:03Z - Archive Summary: Total_Archives=12 | 
+    Largest_File=audit_archive_20261106_000002.tar.gz | Largest_Size_Bytes=1048576 | 
+    Created=2026-11-06T00:00:02Z [WARNING] 2026-11-06T00:00:04Z - Disk ceiling 
+    reached: 108MB exceeds limit of 100MB
+  Diagnostic STDERR Console Output (on runtime exception): [ERROR] 
+    2026-11-06T00:00:05Z - Target workspace ./audit/ missing or not a directory.
+-------------------------------------------------------------------------------- 
+SYSTEM ERROR CODE DICTIONARY (POSIX EXIT STATUS MAPPING) 
+--------------------------------------------------------------------------------
+  0: SUCCESS - Operational task ran to completion without faults. 1: GENERIC_ERROR - 
+  Unmapped error condition or malformed CLI flag. 2: IDENTITY_VIOLATION - Process 
+  called by an unverified account (not auditmanager). 3: CONFIGURATION_MISSING - 
+  Target sysaudit.cfg file not found or malformed. 4: INVALID_WORKSPACE - Target 
+  workspace path missing or is not a directory. 5: DISK_CEILING_REACHED - Critical 
+  storage failure; disk ceiling reached.
+================================================================================
