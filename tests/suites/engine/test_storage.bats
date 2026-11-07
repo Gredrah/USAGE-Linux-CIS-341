@@ -15,7 +15,7 @@ exit_success() {
 }
 
 exit_invalid_workspace() {
-  [ "$1" -eq "$EXIT_INVALID_WORKSPACE"]
+  [ "$1" -eq "$EXIT_INVALID_WORKSPACE" ]
 }
 
 log_exists() {
@@ -60,7 +60,7 @@ error_in_log() {
 }
 
 @test "Exceeding WARN_DISK_MB logs warning and exits 0" {
-  seed_large_file "$(( WARN_DISK_MB + 1 ))"
+  seed_large_files "$(( WARN_DISK_MB + 1 ))"
 
   run "${MOCK_ENGINE}"
 
@@ -71,7 +71,7 @@ error_in_log() {
 
 @test "Custom WARN_DISK_MB in cfg dynamically alters warning threshold" {
   sed -i 's/WARN_DISK_MB=100/WARN_DISK_MB=5/' "${MOCK_CFG}"
-  seed_large_file "6M"
+  seed_large_files "6M"
 
   run "${MOCK_ENGINE}"
 
@@ -81,7 +81,7 @@ error_in_log() {
 }
 
 @test "Exceeding the MAX_DISK_MB ceiling writes to log and exits 5." {
-  seed_large_file "${MOCK_MAX_DISK}M" && seed_large_file "${MOCK_MAX_DISK}"
+  seed_large_files "${MOCK_MAX_DISK}M" && seed_large_files "${MOCK_MAX_DISK}"
 
   run ${MOCK_ENGINE}
 
