@@ -17,7 +17,7 @@ teardown() {
 
   run "${MOCK_ENGINE}" --delegate "auditor_backup"
 
-  exit_success
+  exit_success "$status"
   log_exists
   info_in_log
 }
