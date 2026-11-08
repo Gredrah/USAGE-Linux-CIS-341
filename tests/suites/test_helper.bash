@@ -15,6 +15,19 @@ MOCK_SCAN_INTERVAL="60"
 MOCK_INTERVAL_DAYS="3"
 MOCK_RETENTION_DAYS="14"
 
+populate_config() {
+  # Default config for testing
+  cat <<EOF >"$1"
+AUDIT_DIR=${MOCK_AUDIT_DIR}
+LOG_FILE=${MOCK_TRANSCRIPT_LOG}
+WARN_DISK_MB=${MOCK_WARN_DISK}
+MAX_DISK_MB=${MOCK_MAX_DISK}
+SCAN_INTERVAL=${MOCK_SCAN_INTERVAL}
+CLEANUP_INTERVAL_DAYS=${MOCK_INTERVAL_DAYS}
+ARCHIVE_RETENTION_DAYS=${MOCK_RETENTION_DAYS}
+EOF
+}
+
 # Common set up helper
 test_setup() {
   # Filesystem set up in bats tmpdir
@@ -43,16 +56,7 @@ test_setup() {
   export MOCK_ENGINE="${MOCK_SRC}/sysaudit.sh"
   cp "${PROJECT_ROOT}/src/sysaudit.sh" "${MOCK_ENGINE}"
 
-  # Default config for testing
-  cat <<EOF >"${MOCK_CFG}"
-AUDIT_DIR=${MOCK_AUDIT_DIR}
-LOG_FILE=${MOCK_TRANSCRIPT_LOG}
-WARN_DISK_MB=${MOCK_WARN_DISK}
-MAX_DISK_MB=${MOCK_MAX_DISK}
-SCAN_INTERVAL=${MOCK_SCAN_INTERVAL}
-CLEANUP_INTERVAL_DAYS=${MOCK_INTERVAL_DAYS}
-ARCHIVE_RETENTION_DAYS=${MOCK_RETENTION_DAYS}
-EOF
+  populate_config "${MOCK_CFG}"
 
   # enters the user as our fake auditmanager
   mock_user "auditmanager"
@@ -83,11 +87,12 @@ mock_user() {
 
   local target_user="$1"
   export MOCKED_USER="${target_user}"
+  export USER="${target_user}"
 
   # Return Mocked User in the two scenarios identities may be commonly called
   whoami() { echo "${MOCKED_USER}"; }
   id() {
-    if [[ "$*" == *"-un"* || "$*" == *"-u"* ]]; then
+    if [[ "$*" == *"-u"* ]]; then
       echo "${MOCKED_USER}"
     else
       command id "$@"
@@ -131,4 +136,110 @@ seed_large_files() {
   local filepath="${MOCK_AUDIT_DIR}/oversized_dump.audit"
 
   dd if=/dev/zero of="${filepath}" bs=1M count="${size//M/}" status=none
+}
+
+assert_usage_statement() {
+  # Assert exit code is 0
+  [ "$status" -eq "$EXIT_SUCCESS" ]
+
+  # Assert baseline USAGE string
+  [[ "$output" == *"USAGE"* ]]
+
+  # Content checks:
+  # sysaudit log path present
+  [[ "$output" == *"sysaudit.cfg"* ]]
+
+  # Flags
+  [[ "$output" == *"-h"* ]] || [[ "$output" == *"--help"* ]]
+
+  # Sample logs
+  [[ "$output" == *"[INFO]"* ]] || [[ "$output" == *"[WARN"* ]]
+
+  # Error code dict
+  [[ "$output" == *"0"* && "$output" == *"1"* && "$output" == *"2"* ]]
+  [[ "$output" == *"3"* && "$output" == *"4"* && "$output" == *"5"* ]]
+}
+
+sudo() {
+  mock_user "root"
+  export SUDO_USER="$MOCKED_USER"
+  "$@"
+}
+
+exit_success() {
+  [ "$1" -eq "$EXIT_SUCCESS" ]
+}
+
+exit_generic_error() {
+  [ "$1" -eq "$EXIT_GENERIC_ERROR" ]
+}
+
+exit_identity_error() {
+  [ "$1" -eq "$EXIT_USER_VIOLATION" ]
+}
+
+exit_config_missing() {
+  [ "$1" -eq "$EXIT_CONFIG_MISSING" ]
+}
+
+exit_invalid_workspace() {
+  [ "$1" -eq "$EXIT_INVALID_WORKSPACE" ]
+}
+
+exit_disk_ceiling() {
+  [ "$1" -eq "$EXIT_DISK_MAX_CAP" ]
+}
+
+stderr_used() {
+  [ -n "$stderr" ]
+}
+
+configerr_in_stderr() {
+  [[ "$stderr" =~ [Cc]onfig ]]
+}
+
+log_exists() {
+  [ -f ${MOCK_TRANSCRIPT_LOG} ]
+}
+
+log_not_empty() {
+  [[ -s ${MOCK_TRANSCRIPT_LOG} ]]
+}
+
+timestamp_in_log() {
+  # Should match timestamps in the format
+  # yyyy-mm-dd
+  # and
+  # hh:mm(:ss)?
+  # anywhere in the log string
+  grep -Eq "[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}(:[0-9]{2})?" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+info_in_log() {
+  grep -Eq "\[INFO(RMATION)?\]" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+warning_in_log() {
+  grep -Eq "\[WARN(ING)?\]" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+error_in_log() {
+  grep -Eq "\[ERR(OR)?\]" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+archive_count() {
+  # Match variations we considered for the total count of archives.
+  grep -Eq -i "(Total([_ ])?Archives[:=] *$1|Count.*[ =]*$1|$1\ Archive(\(s\))?)" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+archive_mentioned() {
+  grep -Eq -i "$1\.tar\.gz" "$MOCK_TRANSCRIPT_LOG"
+}
+
+exact_bytes_recorded() {
+  grep -Eq -i "($1 (bytes)|size[:= ]$1)" "$MOCK_TRANSCRIPT_LOG"
+}
+
+archive_modtime_recorded() {
+  grep -Eq "$1(\.[0-9]+ [+-][0-9]{4})?" "${MOCK_TRANSCRIPT_LOG}"
 }
