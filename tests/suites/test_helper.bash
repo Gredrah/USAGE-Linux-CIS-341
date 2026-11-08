@@ -235,3 +235,7 @@ archive_mentioned() {
 exact_bytes_recorded() {
   grep -Eq -i "($1 (bytes)|size[:= ]$1)" "$MOCK_TRANSCRIPT_LOG"
 }
+
+archive_modtime_recorded() {
+  grep -Eq "$1(\.[0-9]+ [+-][0-9]{4})?" "${MOCK_TRANSCRIPT_LOG}"
+}

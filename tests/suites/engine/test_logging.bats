@@ -58,3 +58,33 @@ teardown() {
   archive_mentioned "large"
   exact_bytes_recorded "8192"
 }
+
+@test "data storage file dump is logged with [INFO]" {
+  run "${MOCK_ENGINE}" --scan
+
+  exit_success "$status"
+  info_in_log
+  timestamp_in_log
+  grep -Eq -i "(dump|saved|created|generated|stored).*\.audit" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+@test "script sleep cycle config update is logged with [INFO]" {
+  run "${MOCK_ENGINE}" --scan
+  
+  exit_success "$status"
+  info_in_log
+  timestamp_in_log
+  grep -Eq -i "(sleep|interval|cycle).*30" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+@test "records modification timestamp of the largest archive" {
+  seed_archive_file "small.tar.gz" "2 days ago" 1024
+  seed_archive_file "large.tar.gz" "2026-10-15 08:12:34" 8192
+
+  run "${MOCK_ENGINE}" --scan
+
+  exit_success "$status"
+  archive_mentioned "large"
+  exact_bytes_recorded "8192"
+  archive_modtime_recorded "2026-10-15 08:12:34"
+}
