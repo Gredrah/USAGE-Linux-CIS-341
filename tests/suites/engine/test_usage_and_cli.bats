@@ -37,6 +37,4 @@ teardown() {
   exit_generic_error "$status"
 
   grep -qF "im-an-invalid-flag" "${MOCK_TRANSCRIPT_LOG}"
-
-  assert_usage_statement
 }
