@@ -9,14 +9,21 @@ E_WORKSPACE=4
 E_CEILING=5
 
 CONFIG_FILE="$(dirname "$0")/../config/sysaudit.cfg"
+TS="$(date '+%Y-%m-%d %H:%M:%S')"
+
+get_timestamp() {
+  date '+%Y-%m-%d %H:%M:%S'
+}
 
 # Function for Exits & Logging
 fail_with() {
   local code=$1
   local message=$2
-  echo "[ERROR] $(date) - $message" >&2
+  local ts
+  ts=$(get_timestamp)
+  echo "[ERROR] $ts - $message" >&2
   if [ -n "$LOG_FILE" ]; then
-    echo "[ERROR] $(date) - Terminated with code $code: $message" >>"$LOG_FILE"
+    echo "[ERROR] ${ts} - Terminated with code $code: $message" >>"$LOG_FILE"
   fi
   exit "$code"
 }
@@ -28,12 +35,15 @@ fi
 source "$CONFIG_FILE"
 
 LOG_FILE="${LOG_FILE:-/var/log/sysaudit_daemon.log}"
+TARGET_DIR="${AUDIT_DIR:-${TARGET_DIR:-$TARGET_FOLDER}}"
+TARGET_FOLDER="$TARGET_DIR"
 
 # User Execution Space Sandboxing
 USER=$(id -un)
 if [ "$USER" != "auditmanager" ]; then
   if ! id -nG "$USER" 2>/dev/null | grep -qw "delegatedmanagers"; then
-  fail_with "$E_IDENTITY" "Privilege violation: Process must execute as auditmanager, or by a delegatedmanager."
+    fail_with "$E_IDENTITY" "Privilege violation: Process must execute as auditmanager, or by a delegatedmanager."
+  fi
 fi
 echo "Security Check passed! Welcome $USER."
 
@@ -100,21 +110,33 @@ fi
 
 #auditmanager permissions delegation section
 DELEGATED_USER=""
+CLEANUP_ONLY=0
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-  --limit)
-    STORAGE_LIMIT_MB="$2"
+  -w | --warn)
+    WARN_DISK_MB="$2"
     shift 2
     ;;
-  --delegate)
+  -m | --max | --limit)
     #secure role delegation and autonomy allocation bit
+    MAX_DISK_MB="$2"
+    shift 2
+    ;;
+  -d | --delegate)
     DELEGATED_USER="$2"
     shift 2
     ;;
+  -r | --run | --scan)
+    shift 1
+    ;;
+  -c | --cleanup)
+    CLEANUP_ONLY=1
+    shift 1
+    ;;
   *)
-    echo "[ERROR] GENERIC_ERROR: Unknown parameter provided: $1" >&2
-    exit 1
+    display_help
+    fail_with "$E_GENERIC" "GENERIC_ERROR: Unknown parameter in args: ${1}"
     ;;
   esac
 done
@@ -124,67 +146,70 @@ if [[ -n "$DELEGATED_USER" ]]; then
 
   # Verify the user exists on the system
   if id "$DELEGATED_USER" &>/dev/null; then
-    echo "[INFO] Valid user found. Delegating file domain group access to: $DELEGATED_USER"
+    echo "[INFO] $(get_timestamp) Valid user found. Making delegatedmanager: $DELEGATED_USER" | tee -a "$LOG_FILE"
+
+    usermod -aG delegatedmanagers "$DELEGATED_USER" 2>/dev/null
 
     #Change the group ownership of the workspace directory recursively
-    chgrp -R "$DELEGATED_USER" "$TARGET_DIR" 2>/dev/null
+    chgrp -R delegatedmanagers "$TARGET_DIR" 2>/dev/null
 
     #Grant read, write, and execute permissions to the new group
     chmod -R g+rwx "$TARGET_DIR" 2>/dev/null
 
-    echo "[INFO] Delegation successful. Workspace $TARGET_DIR is now accessible by $DELEGATED_USER."
-
+    echo "[INFO] $(get_timestamp) Delegation successful. Workspace $TARGET_DIR is now accessible by $DELEGATED_USER." | tee -a "$LOG_FILE"
+    exit "$E_SUCCESS"
   else
     # Trap the issue and document properly
-    echo "[ERROR] GENERIC_ERROR: Delegated user '$DELEGATED_USER' does not exist on this system." >&2
-
-    exit 1
+    fail_with "$E_GENERIC" "GENERIC_ERROR: Delegated user '$DELEGATED_USER' does not exist in delegatedmanagers"
   fi
 fi
-
-# Default log file fallback if not defined in config
-LOG_FILE="${LOG_FILE:-/var/log/sysaudit_daemon.log}"
 
 # Workspace Validation
 if [ ! -d "$TARGET_FOLDER" ]; then
   fail_with "$E_WORKSPACE" "Target workspace $TARGET_FOLDER missing or not a directory."
 fi
 
-echo " $(date) - Daemon execution started." >>"$LOG_FILE"
+echo "[INFO] $(get_timestamp) - Daemon execution started." >>"$LOG_FILE"
 
-# Resource Ceiling Warning Check
+#Resource Warning & Ceiling Check
+CEILING_LIMIT_MB=${MAX_DISK_MB}
 CURRENT_SIZE_MB=$(du -sm "$TARGET_FOLDER" 2>/dev/null | cut -f1)
+
 if [ -n "$CEILING_LIMIT_MB" ] && [ "$CURRENT_SIZE_MB" -gt "$CEILING_LIMIT_MB" ]; then
-  echo "[WARNING] $(date) - Disk ceiling reached: ${CURRENT_SIZE_MB}MB exceeds limit of ${CEILING_LIMIT_MB}MB" >>"$LOG_FILE"
+  fail_with "E_CEILING" "Disk ceiling reached: ${CURRENT_SIZE_MB}MB exceeds limit of ${CEILING_LIMIT_MB}MB"
+elif [ -n "WARN_DISK_MB" ] && [ "$CURRENT_SIZE_MB" -gt "WARN_DISK_MB" ]; then
+  echo "[WARNING] $(get_timestamp) - Storage size at ${CURRENT_SIZE_MB}MB (Limit: ${WARN_DISK_MB}MB)" >>"$LOG_FILE"
 fi
 
 # Compress and Cleanup
-ARCHIVE_DIR="${TARGET_FOLDER}archives/"
+ARCHIVE_DIR="${TARGET_FOLDER%/}archives/"
 mkdir -p "$ARCHIVE_DIR"
 
-RAW_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" | wc -l)
+if [ "$CLEANUP_ONLY" -eq 0]; then
+  RAW_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" | wc -l)
 
-if [ "$RAW_COUNT" -gt 0 ]; then
-  TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-  ARCHIVE_NAME="${ARCHIVE_DIR}audit_archive_${TIMESTAMP}.tar.gz"
+  if [ "$RAW_COUNT" -gt 0 ]; then
+    TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+    ARCHIVE_NAME="${ARCHIVE_DIR}audit_archive_${TIMESTAMP}.tar.gz"
 
-  echo " $(date) - Found $RAW_COUNT raw audit files. Packaging into archive." >>"$LOG_FILE"
+    echo "[INFO] $(get_timestamp) - Found $RAW_COUNT raw audit files. Packaging into archive." >>"$LOG_FILE"
 
-  # Compress raw files into tar.gz package
-  find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" -print0 | tar --null -czf "$ARCHIVE_NAME" --files-from -
+    # Compress raw files into tar.gz package
+    find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" -print0 | tar --null -czf "$ARCHIVE_NAME" --files-from -
 
-  if [ $? -eq 0 ]; then
-    echo " $(date) - Compression successful. Deleting individual raw source files." >>"$LOG_FILE"
-    find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" -delete
-  else
-    echo "[ERROR] $(date) - Compression failed. Raw files preserved." >>"$LOG_FILE"
+    if [ $? -eq 0 ]; then
+      echo "[INFO] $(get_timestamp) - Compression successful. Deleting individual raw source files." >>"$LOG_FILE"
+      find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" -delete
+    else
+      echo "[ERROR] $(get_timestamp) - Compression failed. Raw files preserved." >>"$LOG_FILE"
+    fi
   fi
 fi
 
 # Automated Storage Pruning
 RETENTION_DAYS=$((${RETENTION_WEEKS:-2} * 7))
-echo " $(date) - Pruning archives older than $RETENTION_DAYS days..." >>"$LOG_FILE"
+echo "[INFO] $(get_timestamp) - Pruning archives older than $RETENTION_DAYS days..." >>"$LOG_FILE"
 find "$ARCHIVE_DIR" -name "*.tar.gz" -mtime +"$RETENTION_DAYS" -delete
 
-echo " $(date) - Daemon loop completed successfully." >>"$LOG_FILE"
+echo "[INFO] $(get_timestamp) - Daemon loop completed successfully." >>"$LOG_FILE"
 exit "$E_SUCCESS"
