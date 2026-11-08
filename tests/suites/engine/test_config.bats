@@ -16,7 +16,7 @@ teardown() {
   sed -i 's/WARN_DISK_MB=100/WARN_DISK_MB=5/' "${MOCK_CFG}"
   seed_large_files "6M"
 
-  run "${MOCK_ENGINE}"
+  run "${MOCK_ENGINE}" --scan
 
   exit_success "$status"
   log_exists
