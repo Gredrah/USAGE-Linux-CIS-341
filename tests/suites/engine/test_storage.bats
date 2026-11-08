@@ -56,7 +56,7 @@ teardown() {
 
   run ${MOCK_ENGINE} --scan
 
-  "$status" == "$EXIT_DISK_MAX_CAP" ]
+  exit_disk_ceiling "$status"
   log_exists
   error_in_log
 } 

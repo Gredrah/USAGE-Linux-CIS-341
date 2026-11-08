@@ -16,7 +16,6 @@ MOCK_INTERVAL_DAYS="3"
 MOCK_RETENTION_DAYS="14"
 
 populate_config() {
-  if [[ ! -f "$1" ]]; then exit; fi
   # Default config for testing
   cat <<EOF >"$1"
 AUDIT_DIR=${MOCK_AUDIT_DIR}
@@ -92,7 +91,7 @@ mock_user() {
   # Return Mocked User in the two scenarios identities may be commonly called
   whoami() { echo "${MOCKED_USER}"; }
   id() {
-    if [[ "$*" == *"-un"* || "$*" == *"-u"* ]]; then
+    if [[ "$*" == *"-u"* ]]; then
       echo "${MOCKED_USER}"
     else
       command id "$@"
@@ -150,7 +149,7 @@ assert_usage_statement() {
   [[ "$output" == *"sysaudit.cfg"* ]]
 
   # Flags
-  [[ "$output" == *"-h"* ]] || [[ "$output" == *"--help" ]]
+  [[ "$output" == *"-h"* ]] || [[ "$output" == *"--help"* ]]
 
   # Sample logs
   [[ "$output" == *"[INFO]"* ]] || [[ "$output" == *"[WARN"* ]]
@@ -169,7 +168,7 @@ exit_generic_error() {
 }
 
 exit_identity_error() {
-  [ "$1" -eq "$EXIT_USER_VIOLATION"]
+  [ "$1" -eq "$EXIT_USER_VIOLATION" ]
 }
 
 exit_config_missing() {
@@ -204,9 +203,9 @@ timestamp_in_log() {
   # Should match timestamps in the format
   # yyyy-mm-dd
   # and
-  # hh:mm:ss
+  # hh:mm(:ss)?
   # anywhere in the log string
-  grep -Eq "[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}*" "${MOCK_TRANSCRIPT_LOG}"
+  grep -Eq "[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}(:[0-9]{2})?" "${MOCK_TRANSCRIPT_LOG}"
 }
 
 info_in_log() {

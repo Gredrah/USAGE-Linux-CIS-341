@@ -29,7 +29,7 @@ teardown() {
 
   run --separate-stderr "${MOCK_ENGINE}" --scan
 
-  exit_config_missing
+  exit_config_missing "$status"
   stderr_used
   configerr_in_stderr
 }
@@ -42,16 +42,16 @@ EOF
 
   run --separate-stderr "${MOCK_ENGINE}" --scan
 
-  exit_config_missing
+  exit_config_missing "$status"
   stderr_used
 }
 
 @test "Malformed sysaudit.cfg (invalid assignment) writes to STDERR, exit 3" {
-  sed -i "s/SCAN_INTERVAL=${MOCK_SCAN_INTERVAL}/SCAN_INTERVAL=two" "${MOCK_CFG}"
+  sed -i "s/SCAN_INTERVAL=${MOCK_SCAN_INTERVAL}/SCAN_INTERVAL=two/" "${MOCK_CFG}"
 
   run --separate-stderr "${MOCK_ENGINE}" --scan
 
-  exit_config_missing
+  exit_config_missing "$status"
   stderr_used
 }
 
@@ -63,8 +63,11 @@ EOF
   touch "${ALT_CFG}"
 
   populate_config "${ALT_CFG}"
+  sed -i "s|AUDIT_DIR=.*|AUDIT_DIR=${ALT_WORKSPACE}|" "${ALT_CFG}"
 
-  exit_success
+  run "${MOCK_ENGINE}" --config "${ALT_CFG}" --audit-dir "${ALT_WORKSPACE}"
+
+  exit_success "$status"
   # Check that the alternate workspace exists in the log
   grep -q "${ALT_WORKSPACE}" "${MOCK_TRANSCRIPT_LOG}"
 }

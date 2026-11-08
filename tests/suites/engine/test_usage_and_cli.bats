@@ -34,7 +34,7 @@ teardown() {
 @test "Malformed or unknown CLI flags write to STDERR and exit 1" {
   run "${MOCK_ENGINE}" -scan --im-an-invalid-flag
 
-  [ "$status" -eq "$EXIT_GENERIC_ERROR" ]
+  exit_generic_error "$status"
 
   grep -qF "im-an-invalid-flag" "${MOCK_TRANSCRIPT_LOG}"
 

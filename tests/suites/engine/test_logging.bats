@@ -15,7 +15,7 @@ teardown() {
 @test "Transcript: creates self-monitoring log file at LOG_FILE path" {
   run "${MOCK_ENGINE}" --scan 
 
-  exit_success
+  exit_success "$status"
   log_exists
   log_not_empty
 }
@@ -23,7 +23,7 @@ teardown() {
 @test "Transcript: scan loop init is logged with [INFO]" {
   run "${MOCK_ENGINE}" --scan
 
-  exit_success
+  exit_success "$status"
   info_in_log
   timestamp_in_log
 }
@@ -33,7 +33,7 @@ teardown() {
 
   run "${MOCK_ENGINE}" --scan
 
-  exit_invalid_workspace
+  exit_invalid_workspace "$status"
   log_exists
   error_in_log
 }
@@ -44,7 +44,7 @@ teardown() {
 
   run "${MOCK_ENGINE}" --scan
 
-  exit_success
+  exit_success "$status"
   archive_count "2"
 }
 
@@ -54,7 +54,7 @@ teardown() {
 
   run "${MOCK_ENGINE}" --scan
 
-  exit_success
+  exit_success "$status"
   archive_mentioned "large"
   exact_bytes_recorded "8192"
 }
