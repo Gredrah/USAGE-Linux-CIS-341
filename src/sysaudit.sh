@@ -8,25 +8,18 @@ E_CONFIG=3
 E_WORKSPACE=4
 E_CEILING=5
 
-CONFIG_FILE="../config/sysaudit.cfg"
+CONFIG_FILE="$(dirname "$0")/../config/sysaudit.cfg"
 
 # Function for Exits & Logging
 fail_with() {
   local code=$1
   local message=$2
   echo "[ERROR] $(date) - $message" >&2
-  if [ -f "$LOG_FILE" ]; then
+  if [ -n "$LOG_FILE" ]; then
     echo "[ERROR] $(date) - Terminated with code $code: $message" >>"$LOG_FILE"
   fi
   exit "$code"
 }
-
-# User Execution Space Sandboxing
-USER=$(id -un)
-if [ "$USER" != "auditmanager" ]; then
-  fail_with "$E_IDENTITY" "Privilege violation: Process must execute as auditmanager."
-fi
-echo "Security Check passed! Welcome $USER."
 
 # Configuration Loading
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -34,9 +27,19 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 source "$CONFIG_FILE"
 
+LOG_FILE="${LOG_FILE:-/var/log/sysaudit_daemon.log}"
+
+# User Execution Space Sandboxing
+USER=$(id -un)
+if [ "$USER" != "auditmanager" ]; then
+  if ! id -nG "$USER" 2>/dev/null | grep -qw "delegatedmanagers"; then
+  fail_with "$E_IDENTITY" "Privilege violation: Process must execute as auditmanager, or by a delegatedmanager."
+fi
+echo "Security Check passed! Welcome $USER."
+
 #detailed help statement and dumpin stuff
 display_help() {
-    cat << 'EOF'
+  cat <<'EOF'
 ======================================================================
 System Health Monitor & Security Auditing Daemon
 ======================================================================
@@ -45,10 +48,21 @@ System Health Monitor & Security Auditing Daemon
 INSTRUCTIONS & OPERATIONAL SYNTAX:
   sysaudit [OPTIONS]
  
-EXECUTION EXAMPLES:
+PARAMETER OPTIONS & EXECUTION EXAMPLES:
+  sysaudit 
+  sysaudit -h 
   sysaudit --help                  # Display this exhaustive USAGE statement
-  sysaudit --delegate tom_jones     # Delegate execution rights/file access to user 'tom_jones'
-  sysaudit --limit 150             # Override baseline storage limit to 150MB for this loop
+  sysaudit -r
+  sysaudit --run 
+  sysaudit --scan                  # Run the manual scan and remove loop
+  sysaudit -c 
+  sysaudit --cleanup               # Run only the archive pruning and cleanup
+  sysaudit -d 
+  sysaudit --delegate tom_jones    # Delegate execution rights/file access to user 'tom_jones'
+  sysaudit -w 50
+  sysaudit --warn 50               # Override baseline storage limit to 50MB for this loop
+  sysaudit -m 100                  
+  sysaudit --max 100               # Override max storage limit to 100MB for this loop.
 
 
 SAMPLE RESULTS & LOGS:
@@ -57,16 +71,15 @@ SAMPLE RESULTS & LOGS:
   [ERROR] 2026-10-22 14:10:00 - IDENTITY_VIOLATION triggered.
 
 
-PARAMETER OPTIONS:
-  -h, --help       Intercept execution and dump this Program USAGE Statement.
-  --delegate <usr> Explicit functional argument to safely delegate rights to <usr>.
-  --limit <size>   Overwrite the max safety constraint envelope value dynamically.
-
-
 CONFIGURATION SCHEMA (sysaudit.cfg):
-  TARGET_DIR       : Target folder path for workspace (e.g., /course_project/audit/)
-  STORAGE_LIMIT_MB : Over-allocation baseline limit in MB
-  LOG_PATH         : Path to the dedicated internal auditing trace log
+  TARGET_DIR              : Target folder path for workspace (e.g., /course_project/audit/)
+  CONFIG_DIR              : Target cfg path for workspace (default: ../config/sysaudit.cfg)
+  WARN_DISK_MB            : Log over-warning limit in MB (default: 50MB)
+  MAX_DISK_MB             : Over-allocation baseline limit in MB (default: 100MB)
+  LOG_FILE                : Path to the dedicated internal auditing trace log (/var/log/sysaudit_daemon.log)
+  SCAN_INTERVAL           : Interval for daemon scans (default: 60s)
+  ARCHIVE_RETENTION_DAYS  : Number of days to retain archives (default: 14 days)
+  CLEANUP_INTERVAL_DAYS   : Number of days between cleanup (default: 3 days)
 
 
 ERROR CODE DICTIONARY:
@@ -81,53 +94,52 @@ EOF
 
 #dump USAGE statement if run manually from the command line w/o args or help flag
 if [[ "$#" -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
-    display_help
-    exit 0
+  display_help
+  exit 0
 fi
 
 #auditmanager permissions delegation section
 DELEGATED_USER=""
 
 while [[ "$#" -gt 0 ]]; do
-    case "$1" in
-        --limit)
-            STORAGE_LIMIT_MB="$2"
-            shift 2
-            ;;
-        --delegate)
-            #secure role delegation and autonomy allocation bit
-            DELEGATED_USER="$2"
-            shift 2
-            ;;
-        *)
-            echo "[ERROR] GENERIC_ERROR: Unknown parameter provided: $1" >&2
-            exit 1
-            ;;
-    esac
+  case "$1" in
+  --limit)
+    STORAGE_LIMIT_MB="$2"
+    shift 2
+    ;;
+  --delegate)
+    #secure role delegation and autonomy allocation bit
+    DELEGATED_USER="$2"
+    shift 2
+    ;;
+  *)
+    echo "[ERROR] GENERIC_ERROR: Unknown parameter provided: $1" >&2
+    exit 1
+    ;;
+  esac
 done
 
 # Apply the delegation logic if the argument was passed
 if [[ -n "$DELEGATED_USER" ]]; then
-   
-    # Verify the user exists on the system
-    if id "$DELEGATED_USER" &>/dev/null; then
-        echo "[INFO] Valid user found. Delegating file domain group access to: $DELEGATED_USER"
-       
-        #Change the group ownership of the workspace directory recursively
-        chgrp -R "$DELEGATED_USER" "$TARGET_DIR" 2>/dev/null
-       
-        #Grant read, write, and execute permissions to the new group
-        chmod -R g+rwx "$TARGET_DIR" 2>/dev/null
-       
-       
-        echo "[INFO] Delegation successful. Workspace $TARGET_DIR is now accessible by $DELEGATED_USER."
-       
-    else
-        # Trap the issue and document properly
-        echo "[ERROR] GENERIC_ERROR: Delegated user '$DELEGATED_USER' does not exist on this system." >&2
-       
-        exit 1
-    fi
+
+  # Verify the user exists on the system
+  if id "$DELEGATED_USER" &>/dev/null; then
+    echo "[INFO] Valid user found. Delegating file domain group access to: $DELEGATED_USER"
+
+    #Change the group ownership of the workspace directory recursively
+    chgrp -R "$DELEGATED_USER" "$TARGET_DIR" 2>/dev/null
+
+    #Grant read, write, and execute permissions to the new group
+    chmod -R g+rwx "$TARGET_DIR" 2>/dev/null
+
+    echo "[INFO] Delegation successful. Workspace $TARGET_DIR is now accessible by $DELEGATED_USER."
+
+  else
+    # Trap the issue and document properly
+    echo "[ERROR] GENERIC_ERROR: Delegated user '$DELEGATED_USER' does not exist on this system." >&2
+
+    exit 1
+  fi
 fi
 
 # Default log file fallback if not defined in config
