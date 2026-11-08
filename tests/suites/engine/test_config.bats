@@ -63,11 +63,31 @@ EOF
   touch "${ALT_CFG}"
 
   populate_config "${ALT_CFG}"
-  sed -i "s|AUDIT_DIR=.*|AUDIT_DIR=${ALT_WORKSPACE}|" "${ALT_CFG}"
 
   run "${MOCK_ENGINE}" --config "${ALT_CFG}" --audit-dir "${ALT_WORKSPACE}"
 
   exit_success "$status"
   # Check that the alternate workspace exists in the log
   grep -q "${ALT_WORKSPACE}" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+@test "Malfformed sysaudit.cfg (spaces around =)" {
+  sed -i "s/SCAN_INTERVAL=${MOCK_SCAN_INTERVAL}/SCAN_INTERVAL = 60/" "${MOCK_CFG}"
+
+  run --separate-stderr "${MOCK_ENGINE}" --scan
+
+  exit_config_missing "$status"
+  stderr_used
+}
+
+@test "CLI flag overrides WARN_DISK_MB" {
+  seed_large_files "10M"
+
+  run "${MOCK_ENGINE}" --scan -w 5
+
+  exit_success "$status"
+  log_exists
+  warning_in_log
+
+  grep -q "^WARN_DISK_MB=${MOCK_WARN_DISK}$" "${MOCK_CFG}"
 }
