@@ -15,20 +15,20 @@ teardown() {
 @test "Missing AUDIT_DIR workspace writes to log and exits 4 (INVALID_WORKSPACE)" {
   rm -rf "${MOCK_AUDIT_DIR}"
 
-  run "${MOCK_ENGINE}" --scan
+  run --separate-stderr "${MOCK_ENGINE}" --scan
 
   exit_invalid_workspace "$status"
-  error_in_log
+  stderr_used
 }
 
 @test "Check that AUDIT_DIR not pointing to a directory exits 4" {
   rm -rf "${MOCK_AUDIT_DIR}"
   touch "${MOCK_AUDIT_DIR%/}"
 
-  run "${MOCK_ENGINE}" --scan
+  run --separate-stderr "${MOCK_ENGINE}" --scan
 
   exit_invalid_workspace "$status"
-  error_in_log
+  stderr_used
 }
 
 @test "Normal workspace under WARN_DISK_MB baseline cfg runs cleanly" {
