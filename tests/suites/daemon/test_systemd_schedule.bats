@@ -36,6 +36,6 @@ teardown() {
   if grep -Eq "^[[:space:]]*Unit=" "${SYSTEMD_TIMER}"; then 
     grep -Eq "^[[:space:]]*Unit=sysaudit\.service" "${SYSTEMD_TIMER}"
   else 
-    [ -f "${SERVICE_FILE}" ]
+    [ -f "${SYSTEMD_SERVICE}" ]
   fi 
 }
