@@ -77,6 +77,9 @@ test_cleanup() {
 # User Identity Faking - Overrides whoami and id -un in BATS
 # Requires an argument: the user being overriden
 mock_user() {
+  # $USER variable to account for simple checking
+  export USER="${target_user}"
+
   if [[ "$#" -ne 1 ]]; then
     echo "Please provide a username to mock as the first and only argument."
     exit 1
