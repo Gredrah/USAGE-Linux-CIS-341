@@ -15,6 +15,20 @@ MOCK_SCAN_INTERVAL="60"
 MOCK_INTERVAL_DAYS="3"
 MOCK_RETENTION_DAYS="14"
 
+populate_config() {
+  if [[ ! -f "$1" ]]; then exit; fi
+  # Default config for testing
+  cat <<EOF >"$1"
+AUDIT_DIR=${MOCK_AUDIT_DIR}
+LOG_FILE=${MOCK_TRANSCRIPT_LOG}
+WARN_DISK_MB=${MOCK_WARN_DISK}
+MAX_DISK_MB=${MOCK_MAX_DISK}
+SCAN_INTERVAL=${MOCK_SCAN_INTERVAL}
+CLEANUP_INTERVAL_DAYS=${MOCK_INTERVAL_DAYS}
+ARCHIVE_RETENTION_DAYS=${MOCK_RETENTION_DAYS}
+EOF
+}
+
 # Common set up helper
 test_setup() {
   # Filesystem set up in bats tmpdir
@@ -43,16 +57,7 @@ test_setup() {
   export MOCK_ENGINE="${MOCK_SRC}/sysaudit.sh"
   cp "${PROJECT_ROOT}/src/sysaudit.sh" "${MOCK_ENGINE}"
 
-  # Default config for testing
-  cat <<EOF >"${MOCK_CFG}"
-AUDIT_DIR=${MOCK_AUDIT_DIR}
-LOG_FILE=${MOCK_TRANSCRIPT_LOG}
-WARN_DISK_MB=${MOCK_WARN_DISK}
-MAX_DISK_MB=${MOCK_MAX_DISK}
-SCAN_INTERVAL=${MOCK_SCAN_INTERVAL}
-CLEANUP_INTERVAL_DAYS=${MOCK_INTERVAL_DAYS}
-ARCHIVE_RETENTION_DAYS=${MOCK_RETENTION_DAYS}
-EOF
+  populate_config "${MOCK_CFG}"
 
   # enters the user as our fake auditmanager
   mock_user "auditmanager"
@@ -159,8 +164,32 @@ exit_success() {
   [ "$1" -eq "$EXIT_SUCCESS" ]
 }
 
+exit_generic_error() {
+  [ "$1" -eq "$EXIT_GENERIC_ERROR" ]
+}
+
+exit_identity_error() {
+  [ "$1" -eq "$EXIT_USER_VIOLATION"]
+}
+
+exit_config_missing() {
+  [ "$1" -eq "$EXIT_CONFIG_MISSING" ]
+}
+
 exit_invalid_workspace() {
   [ "$1" -eq "$EXIT_INVALID_WORKSPACE" ]
+}
+
+exit_disk_ceiling() {
+  [ "$1" -eq "$EXIT_DISK_MAX_CAP" ]
+}
+
+stderr_used() {
+  [ -n "$stderr" ]
+}
+
+configerr_in_stderr() {
+  [[ "$stderr" =~ [Cc]onfig ]]
 }
 
 log_exists() {
