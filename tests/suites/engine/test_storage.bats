@@ -42,7 +42,7 @@ teardown() {
 }
 
 @test "Exceeding WARN_DISK_MB logs warning and exits 0" {
-  seed_large_files "$(( WARN_DISK_MB + 1 ))"
+  seed_large_files "$(( MOCK_WARN_DISK + 1 ))M"
 
   run "${MOCK_ENGINE}" --scan
 
@@ -52,7 +52,7 @@ teardown() {
 }
 
 @test "Exceeding the MAX_DISK_MB ceiling writes to log and exits 5." {
-  seed_large_files "${MOCK_MAX_DISK}M" && seed_large_files "${MOCK_MAX_DISK}"
+  seed_large_files "$(( MOCK_MAX_DISK + 5))M"
 
   run ${MOCK_ENGINE} --scan
 
