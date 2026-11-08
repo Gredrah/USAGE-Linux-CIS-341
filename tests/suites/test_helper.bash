@@ -196,10 +196,40 @@ log_exists() {
   [ -f ${MOCK_TRANSCRIPT_LOG} ]
 }
 
+log_not_empty() {
+  [[ -s ${MOCK_TRANSCRIPT_LOG} ]]
+}
+
+timestamp_in_log() {
+  # Should match timestamps in the format
+  # yyyy-mm-dd
+  # and
+  # hh:mm:ss
+  # anywhere in the log string
+  grep -Eq "[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}*" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+info_in_log() {
+  grep -Eq "\[INFO(RMATION)?\]" "${MOCK_TRANSCRIPT_LOG}"
+}
+
 warning_in_log() {
   grep -Eq "\[WARN(ING)?\]" "${MOCK_TRANSCRIPT_LOG}"
 }
 
 error_in_log() {
   grep -Eq "\[ERR(OR)?\]" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+archive_count() {
+  # Match variations we considered for the total count of archives.
+  grep -Eq -i "(Total([_ ])?Archives[:=] *$1|Count.*[ =]*$1|$1\ Archive(\(s\))?)" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+archive_mentioned() {
+  grep -Eq -i "$1\.tar\.gz" "$MOCK_TRANSCRIPT_LOG"
+}
+
+exact_bytes_recorded() {
+  grep -Eq -i "($1 (bytes)|size[:= ]$1)" "$MOCK_TRANSCRIPT_LOG"
 }
