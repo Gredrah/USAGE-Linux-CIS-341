@@ -77,9 +77,6 @@ test_cleanup() {
 # User Identity Faking - Overrides whoami and id -un in BATS
 # Requires an argument: the user being overriden
 mock_user() {
-  # $USER variable to account for simple checking
-  export USER="${target_user}"
-
   if [[ "$#" -ne 1 ]]; then
     echo "Please provide a username to mock as the first and only argument."
     exit 1
@@ -90,6 +87,7 @@ mock_user() {
 
   local target_user="$1"
   export MOCKED_USER="${target_user}"
+  export USER="${target_user}"
 
   # Return Mocked User in the two scenarios identities may be commonly called
   whoami() { echo "${MOCKED_USER}"; }
@@ -160,6 +158,12 @@ assert_usage_statement() {
   # Error code dict
   [[ "$output" == *"0"* && "$output" == *"1"* && "$output" == *"2"* ]]
   [[ "$output" == *"3"* && "$output" == *"4"* && "$output" == *"5"* ]]
+}
+
+sudo() {
+  mock_user "root"
+  export SUDO_USER="$MOCKED_USER"
+  "$@"
 }
 
 exit_success() {
