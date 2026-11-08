@@ -132,3 +132,45 @@ seed_large_files() {
 
   dd if=/dev/zero of="${filepath}" bs=1M count="${size//M/}" status=none
 }
+
+assert_usage_statement() {
+  # Assert exit code is 0
+  [ "$status" -eq "$EXIT_SUCCESS" ]
+
+  # Assert baseline USAGE string
+  [[ "$output" == *"USAGE"* ]]
+
+  # Content checks:
+  # sysaudit log path present
+  [[ "$output" == *"sysaudit.cfg"* ]]
+
+  # Flags
+  [[ "$output" == *"-h"* ]] || [[ "$output" == *"--help" ]]
+
+  # Sample logs
+  [[ "$output" == *"[INFO]"* ]] || [[ "$output" == *"[WARN"* ]]
+
+  # Error code dict
+  [[ "$output" == *"0"* && "$output" == *"1"* && "$output" == *"2"* ]]
+  [[ "$output" == *"3"* && "$output" == *"4"* && "$output" == *"5"* ]]
+}
+
+exit_success() {
+  [ "$1" -eq "$EXIT_SUCCESS" ]
+}
+
+exit_invalid_workspace() {
+  [ "$1" -eq "$EXIT_INVALID_WORKSPACE" ]
+}
+
+log_exists() {
+  [ -f ${MOCK_TRANSCRIPT_LOG} ]
+}
+
+warning_in_log() {
+  grep -Eq "\[WARN(ING)?\]" "${MOCK_TRANSCRIPT_LOG}"
+}
+
+error_in_log() {
+  grep -Eq "\[ERR(OR)?\]" "${MOCK_TRANSCRIPT_LOG}"
+}
