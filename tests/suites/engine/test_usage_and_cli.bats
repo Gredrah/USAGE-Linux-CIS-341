@@ -32,9 +32,9 @@ teardown() {
 
 # Write the error to stderr, and exit code 1.
 @test "Malformed or unknown CLI flags write to STDERR and exit 1" {
-  run "${MOCK_ENGINE}" -scan --im-an-invalid-flag
+  run --separate-stderr "${MOCK_ENGINE}" --scan --im-an-invalid-flag
 
   exit_generic_error "$status"
-
-  grep -qF "im-an-invalid-flag" "${MOCK_TRANSCRIPT_LOG}"
+  stderr_used
+  [[ "$stderr" == *"im-an-invalid-flag"* ]]
 }
