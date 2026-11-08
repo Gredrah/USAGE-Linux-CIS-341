@@ -29,7 +29,7 @@ teardown() {
 }
 
 @test "sysaudit.timer is enabled for automatic timer target setup" {
-  grep -Eq "^[[:space:]]*WantedBy=(timers|multi-user)\.target([[:space:]]|$" "${SYSTEMD_TIMER}"
+  grep -Eq "^[[:space:]]*WantedBy=(timers|multi-user)\.target[[:space:]]*$" "${SYSTEMD_TIMER}"
 }
 
 @test "sysaudit.timer and .service target the audit workspace" {
