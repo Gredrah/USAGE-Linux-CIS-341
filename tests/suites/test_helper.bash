@@ -98,8 +98,18 @@ mock_user() {
       command id "$@"
     fi
   }
+  usermod() {
+    echo "Mock usermod: added $2 to group"
+    return 0
+  }
+  chgrp() {
+    command chgrp "$@" 2>/dev/null || true
+  }
+  chmod() {
+    command chmod "$@" 2>/dev/null || true
+  }
 
-  export -f whoami id
+  export -f whoami id usermod chgrp chmod
 }
 
 # File & Archive seeding helper

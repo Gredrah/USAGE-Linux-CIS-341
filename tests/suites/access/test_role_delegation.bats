@@ -42,7 +42,7 @@ teardown() {
 
   exit_identity_error "$status"
   stderr_used
-  info_in_log
+  warning_in_log
 }
 
 @test "Non-delegated secondary user is still blocked after another un-related user is delegated" {

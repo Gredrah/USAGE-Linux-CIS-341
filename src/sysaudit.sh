@@ -86,6 +86,16 @@ fail_with() {
   exit "$code"
 }
 
+require_numeric() {
+  local var_name="$1"
+  local var_value="${!var_name}"
+  if ! [[ "$var_value" =~ ^[0-9]+$ ]]; then
+    fail_with "$E_CONFIG" "Configuration missing: Invalid Configuration - $var_name must be a positive integer in $CONFIG_FILE (got '${var_value:-<unset>}')."
+  fi
+}
+
+echo "[INFO] $(get_timestamp) - Daemon execution started for workspace ${TARGET_DIR}." >>"$LOG_FILE"
+
 #dump USAGE statement if run manually from the command line w/o args or help flag
 if [[ "$#" -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
   display_help
@@ -152,6 +162,16 @@ if [ ! -f "$CONFIG_FILE" ] || ! source "$CONFIG_FILE" 2>/dev/null; then
   fail_with "$E_CONFIG" "Configuration file $CONFIG_FILE not found, or invalid configuration."
 fi
 
+if [ -z "$AUDIT_DIR" ]; then
+  fail_with "$E_CONFIG" "CONFIG MISSING: AUDIT_DIR is not defined in $CONFIG_FILE."
+fi
+
+require_numeric "WARN_DISK_MB"
+require_numeric "MAX_DISK_MB"
+require_numeric "SCAN_INTERVAL"
+require_numeric "CLEANUP_INTERVAL_DAYS"
+require_numeric "ARCHIVE_RETENTION_DAYS"
+
 #Apply remaining CLI Flag overrides over sysaudit.cfg
 if [ -n "$CLI_AUDIT_DIR" ]; then
   AUDIT_DIR="$CLI_AUDIT_DIR"
@@ -163,7 +183,7 @@ if [ -n "$CLI_MAX_DISK_MB" ]; then
   MAX_DISK_MB="$CLI_MAX_DISK_MB"
 fi
 
-LOG_FILE="${LOG_FILE:-/var/log/sysaudit_daemon.log}"
+LOG_FILE="${LOG_FILE}"
 TARGET_DIR="$AUDIT_DIR"
 TARGET_FOLDER="$TARGET_DIR"
 
@@ -214,7 +234,6 @@ if [ ! -d "$TARGET_FOLDER" ]; then
   fail_with "$E_WORKSPACE" "Target workspace $TARGET_FOLDER missing or not a directory."
 fi
 
-echo "[INFO] $(get_timestamp) - Daemon execution started." >>"$LOG_FILE"
 echo "[INFO] $(get_timestamp) - Sleep cycle interval configured to ${SCAN_INTERVAL}s" >>"$LOG_FILE"
 
 #Resource Warning & Ceiling Check
@@ -227,12 +246,23 @@ elif [ -n "$WARN_DISK_MB" ] && [ "$CURRENT_SIZE_MB" -gt "$WARN_DISK_MB" ]; then
   echo "[WARNING] $(get_timestamp) - Storage size at ${CURRENT_SIZE_MB}MB (Limit: ${WARN_DISK_MB}MB)" >>"$LOG_FILE"
 fi
 
-if [ $RUN_SCAN -eq 0 ]; then
-  filets=$(date +"%Y%m%d_%H%M%S")
+filets=$(date +"%Y%m%d_%H%M%S")
+
+if [ $RUN_SCAN -eq 1 ]; then
   AUDIT_NAME="${TARGET_FOLDER%/}/sysaudit_${filets}_$$.audit"
-  echo "System audit scan by $USER at $(get_timestamp) - Disk usage: ${CURRENT_SIZE_MB}MB" >"$AUDIT_NAME"
+  {
+    echo "System audit scan by $USER at $(get_timestamp) - Disk usage: ${CURRENT_SIZE_MB}MB"
+    echo "---- system health snapshot ----"
+    uptime
+    free -m 2>/dev/null
+    df -h 2>/dev/null
+    ps -eo pid,user,%cpu,%mem,comm --sort=-%cpu 2>/dev/null | head -n 6
+    echo "[INFO] $(get_timestamp) - Data dump generated and saved to ${AUDIT_NAME}"
+  } >"$AUDIT_NAME" 2>/dev/null
   echo "[INFO] $(get_timestamp) - Data dump generated and saved to ${AUDIT_NAME}" >>"$LOG_FILE"
 fi
+
+# Automated Storage Pruning
 if [ $CLEANUP_FLAG -eq 1 ]; then
   RAW_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" 2>/dev/null | wc -l)
 
@@ -249,23 +279,22 @@ if [ $CLEANUP_FLAG -eq 1 ]; then
       echo "[ERROR] $(get_timestamp) - Compression failed. Raw files preserved." >>"$LOG_FILE"
     fi
   fi
-fi
 
-# Automated Storage Pruning
-RETENTION_DAYS=${ARCHIVE_RETENTION_DAYS}
-echo "[INFO] $(get_timestamp) - Pruning archives older than $RETENTION_DAYS days..." >>"$LOG_FILE"
-find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -mtime +"$RETENTION_DAYS" -delete
+  RETENTION_DAYS=${ARCHIVE_RETENTION_DAYS}
+  echo "[INFO] $(get_timestamp) - Pruning archives older than $RETENTION_DAYS days..." >>"$LOG_FILE"
+  find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -mtime +"$RETENTION_DAYS" -delete
 
-ARCHIVE_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" 2>/dev/null | wc -l | tr -d ' ')
-echo "[INFO] $(get_timestamp) - Summary: Total compressed archives count: ${ARCHIVE_COUNT}" >>"$LOG_FILE"
+  ARCHIVE_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" 2>/dev/null | wc -l | tr -d ' ')
+  echo "[INFO] $(get_timestamp) - Summary: Total compressed archives count: ${ARCHIVE_COUNT}" >>"$LOG_FILE"
 
-if [ "$ARCHIVE_COUNT" -gt 0 ]; then
-  LARGEST_ENTRY=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -printf "%s %p\n" 2>/dev/null | sort -nr | head -n 1)
-  LARGEST_BYTES=$(echo "$LARGEST_ENTRY" | awk '{print $1}')
-  LARGEST_PATH=$(echo "$LARGEST_ENTRY" | cut -d' ' -f2-)
-  LARGEST_NAME=$(basename "$LARGEST_PATH")
-  LARGEST_MTIME=$(stat -c "%y" "$LARGEST_PATH" 2>/dev/null | cut -d'.' -f1)
-  echo "[INFO] $(get_timestamp) - Summary: Largest archive ${LARGEST_NAME} is ${LARGEST_BYTES} bytes (modified: ${LARGEST_MTIME})." >>"$LOG_FILE"
+  if [ "$ARCHIVE_COUNT" -gt 0 ]; then
+    LARGEST_ENTRY=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -printf "%s %p\n" 2>/dev/null | sort -nr | head -n 1)
+    LARGEST_BYTES=$(echo "$LARGEST_ENTRY" | awk '{print $1}')
+    LARGEST_PATH=$(echo "$LARGEST_ENTRY" | cut -d' ' -f2-)
+    LARGEST_NAME=$(basename "$LARGEST_PATH")
+    LARGEST_MTIME=$(stat -c "%y" "$LARGEST_PATH" 2>/dev/null | cut -d'.' -f1)
+    echo "[INFO] $(get_timestamp) - Summary: Largest archive ${LARGEST_NAME} is ${LARGEST_BYTES} bytes (modified: ${LARGEST_MTIME})." >>"$LOG_FILE"
+  fi
 fi
 
 echo "[INFO] $(get_timestamp) - Daemon loop completed successfully." >>"$LOG_FILE"
