@@ -257,7 +257,7 @@ if [ $RUN_SCAN -eq 1 ]; then
     df -h 2>/dev/null
     ps -eo pid,user,%cpu,%mem,comm --sort=-%cpu 2>/dev/null | head -n 6
     echo "[INFO] $(get_timestamp) - Data dump generated and saved to ${AUDIT_NAME}"
-  } >"$AUDIT_NAME" 2>/dev/null
+  } 2>/dev/null | tee "$AUDIT_NAME"
   echo "[INFO] $(get_timestamp) - Data dump generated and saved to ${AUDIT_NAME}" >>"$LOG_FILE"
 fi
 
