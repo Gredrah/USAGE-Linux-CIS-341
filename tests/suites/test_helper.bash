@@ -47,6 +47,8 @@ test_setup() {
   # transcript log, mock cfg
   export MOCK_TRANSCRIPT_LOG="${MOCK_LOG_DIR}/USAGE_daemon.log"
   export MOCK_CFG="${MOCK_ROOT}/config/sysaudit.cfg"
+  export MOCK_GROUP_FILE="${MOCK_ROOT}/delegatedmanagers.mock"
+  touch "${MOCK_GROUP_FILE}"
 
   # make directory
 
@@ -91,15 +93,44 @@ mock_user() {
 
   # Return Mocked User in the two scenarios identities may be commonly called
   whoami() { echo "${MOCKED_USER}"; }
+
   id() {
-    if [[ "$*" == *"-u"* ]]; then
-      echo "${MOCKED_USER}"
-    else
-      command id "$@"
-    fi
+    case "$1" in
+      -un)
+        echo "${MOCKED_USER}"
+        return 0
+        ;;
+      -u)
+        if [[ "${MOCKED_USER}" == "root" ]]; then
+          echo "0"
+        else
+          echo "1000"
+        fi
+        return 0
+        ;;
+      -nG)
+        local check_user="${2:-$MOCKED_USER}"
+        local groups="users"
+        if [[ "${check_user}" == "auditmanager" ]] || grep -qx "${check_user}" "${MOCK_GROUP_FILE}" 2>/dev/null; then
+          groups="${groups} delegatedmanagers"
+        fi
+        echo "${groups}"
+        return 0
+        ;;
+      *)
+        if [[ -n "$1" && "$1" != -* ]]; then
+          echo "uid=1001($1) gid=1001($1) groups=1001($1)"
+          return 0
+        fi
+        command id "$@"
+        ;;
+    esac
+  }
+
   }
   usermod() {
-    echo "Mock usermod: added $2 to group"
+    local delegated_target="${!#}"
+    echo "${delegated_target}" >> "${MOCK_GROUP_FILE}"
     return 0
   }
   chgrp() {
