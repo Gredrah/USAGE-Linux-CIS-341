@@ -245,7 +245,7 @@ elif [ -n "$WARN_DISK_MB" ] && [ "$CURRENT_SIZE_MB" -gt "$WARN_DISK_MB" ]; then
   echo "[WARNING] $(get_timestamp) - Storage size at ${CURRENT_SIZE_MB}MB (Limit: ${WARN_DISK_MB}MB)" >>"$LOG_FILE"
 fi
 
-filets=$(date +"%Y%m%d_%H%M%S")
+filets=$(date +"%Y-%m-%d_%H-%M-%S")
 
 if [ $RUN_SCAN -eq 1 ]; then
   AUDIT_NAME="${TARGET_FOLDER%/}/sysaudit_${filets}.audit"
