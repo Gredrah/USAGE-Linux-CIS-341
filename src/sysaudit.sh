@@ -30,31 +30,33 @@ INSTRUCTIONS & OPERATIONAL SYNTAX:
 PARAMETER OPTIONS & EXECUTION EXAMPLES:
   sysaudit 
   sysaudit -h 
-  sysaudit --help                  # Display this exhaustive USAGE statement
+  sysaudit --help                   # Display this exhaustive USAGE statement
   sysaudit -r
   sysaudit --run 
-  sysaudit --scan                  # Run the manual scan and remove loop
+  sysaudit --scan                   # Run the manual scan and remove loop
   sysaudit -c 
-  sysaudit --cleanup               # Run only the archive pruning and cleanup
-  sysaudit -d 
-  sysaudit --delegate tom_jones    # Delegate execution rights/file access to user 'tom_jones'
+  sysaudit --cleanup                # Run only the archive pruning and cleanup
+  sysaudit -d tom_jones  
+  sysaudit --delegate tom_jones     # Delegate execution rights/file access to user 'tom_jones'
   sysaudit -w 50
-  sysaudit --warn 50               # Override baseline storage limit to 50MB for this loop
+  sysaudit --warn 50                # Override baseline storage limit to 50MB for this loop
   sysaudit -m 100                  
-  sysaudit --max 100               # Override max storage limit to 100MB for this loop.
-  sysaudit --config                # Provide an alternate config file to the default
-  sysaudit --workspace             # Provide an alternate audit directory to the default
+  sysaudit --max 100                # Override max storage limit to 100MB for this loop.
+  sysaudit --config /my/file.cfg    # Provide an alternate config file to the default
+  sysaudit --workspace /my/file.cfg # Provide an alternate audit directory to the default
 
 
 SAMPLE RESULTS & LOGS:
-  [INFO] 2026-10-22 14:00:01 - Scan loop initialized successfully.
-  [WARN] 2026-10-22 14:05:00 - Storage envelope at 95MB (Limit: 100MB).
-  [ERROR] 2026-10-22 14:10:00 - IDENTITY_VIOLATION triggered.
+  [INFO] 2026-10-22 14:00:01 - Daemon execution started for workspace /course_project/audit.
+  [INFO] 2026-10-22 14:00:02 - Summary: Largest archive audit_archive_20261022_140002.tar.gz is 2048 bytes (modified: 2026-10-22 14:00:02).
+  [WARNING] 2026-10-22 14:05:00 - Storage size at 95MB (Limit: 50MB)
+  [ERROR] 2026-10-22 14:10:00 - Terminated with code 2: Privilege violation: Process must execute as auditmanager, or by a delegatedmanager.
 
 
 CONFIGURATION SCHEMA (sysaudit.cfg):
-  TARGET_DIR              : Target folder path for workspace (e.g., /course_project/audit/)
-  CONFIG_DIR              : Target cfg path for workspace (default: ../config/sysaudit.cfg)
+  FORMAT                  : KEY=VALUE (NO SPACES AROUND OPERATOR, OR QUOTES)
+  AUDIT_DIR               : Target folder path for workspace (e.g., /course_project/audit/)
+  CFG_DIR                 : Target cfg path for workspace (default: ../config/sysaudit.cfg)
   WARN_DISK_MB            : Log over-warning limit in MB (default: 50MB)
   MAX_DISK_MB             : Over-allocation baseline limit in MB (default: 100MB)
   LOG_FILE                : Path to the dedicated internal auditing trace log (/var/log/sysaudit_daemon.log)
