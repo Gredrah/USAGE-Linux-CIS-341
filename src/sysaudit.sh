@@ -248,7 +248,7 @@ fi
 filets=$(date +"%Y%m%d_%H%M%S")
 
 if [ $RUN_SCAN -eq 1 ]; then
-  AUDIT_NAME="${TARGET_FOLDER%/}/sysaudit_${filets}_$$.audit"
+  AUDIT_NAME="${TARGET_FOLDER%/}/sysaudit_${filets}.audit"
   {
     echo "System audit scan by $USER at $(get_timestamp) - Disk usage: ${CURRENT_SIZE_MB}MB"
     echo "---- system health snapshot ----"
