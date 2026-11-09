@@ -27,12 +27,21 @@ fi
 # Creates auditmanager user if it doesn't exist
 if ! id "auditmanager" &>/dev/null; then
   echo "Creating user: auditmanager"
-  useradd --system --no-create-home --shell /bin/false -g "delegatedmanagers" auditmanager
+  useradd --system --no-create-home --shell /bin/bash -g "delegatedmanagers" auditmanager
 else
   echo "User 'auditmanager' already exists."
   # Ensures auditmanager belongs to the group if the user already existed.
-  usermod -g "delegatedmanagers" auditmanager
+  usermod -s /bin/bash -g "delegatedmanagers" auditmanager
 fi
+
+INVOKING_USER="${SUDO_USER}"
+{
+  echo "auditmanager ALL=(root) NOPASSWD: /usr/sbin/usermod -aG delegatedmanagers *"
+  if [ -n "$INVOKING_USER" ] && [ "$INVOKING_USER" != "root" ]; then
+    echo "$INVOKING_USER ALL=(audit) NOPASSWD: ALL"
+  fi
+} >/etc/sudoers.d/sysaudit
+chmod 440 /etc/sudoers.d/sysaudit
 
 # Creates default workspace and log directories with correct ownership
 echo "Creating tree at ${PREFIX}"
@@ -43,6 +52,8 @@ chown -R auditmanager:delegatedmanagers /course_project/audit/
 chown auditmanager:delegatedmanagers /var/log/sysaudit_daemon.log
 chmod 750 /course_project/audit/
 chmod 640 /var/log/sysaudit_daemon.log
+
+# Add the invoking user
 
 # Copy files to /usr/local/bin + permissions correction
 echo "Installing files and configuration"

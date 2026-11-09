@@ -187,7 +187,7 @@ TARGET_FOLDER="$TARGET_DIR"
 
 # User Execution Space Sandboxing
 USER=$(id -un)
-if [ "$USER" == "root" ] || [ "$(id -u)" -eq 0 ] || [ -n "$SUDO_USER" ]; then
+if [ "$USER" == "root" ] || [ "$(id -u)" -eq 0 ] || [ "$SUDO_USER" == "root" ]; then
   echo "[WARN] $(get_timestamp) - security check blocked root/sudo access attempt by $USER" >>"$LOG_FILE" 2>/dev/null
   fail_with "$E_IDENTITY" "Privilege Violation: Execution as root/sudo is prohibited."
 fi
@@ -211,7 +211,7 @@ if [[ -n "$DELEGATED_USER" ]]; then
   if id "$DELEGATED_USER" &>/dev/null; then
     echo "[INFO] $(get_timestamp) Valid user found. Making delegatedmanager: $DELEGATED_USER" | tee -a "$LOG_FILE"
 
-    usermod -aG delegatedmanagers "$DELEGATED_USER" 2>/dev/null
+    usermod -aG delegatedmanagers "$DELEGATED_USER" 2>/dev/null || sudo -n /usr/sbin/usermod -aG delegatedmanagers "$DELEGATED_USER" 2>/dev/null
 
     #Change the group ownership of the workspace directory recursively
     chgrp -R delegatedmanagers "$TARGET_DIR" "$LOG_FILE" 2>/dev/null
