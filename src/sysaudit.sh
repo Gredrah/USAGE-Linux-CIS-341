@@ -169,7 +169,7 @@ TARGET_FOLDER="$TARGET_DIR"
 
 # User Execution Space Sandboxing
 USER=$(id -un)
-if [ "$USER" == "root" || [ "$(id -u)" -eq 0 ] || [ -n "$SUDO_USER" ]; then
+if [ "$USER" == "root" ] || [ "$(id -u)" -eq 0 ] || [ -n "$SUDO_USER" ]; then
   echo "[WARN] $(get_timestamp) - security check blocked root/sudo access attempt by $USER" >>"$LOG_FILE" 2>/dev/null
   fail_with "$E_IDENTITY" "Privilege Violation: Execution as root/sudo is prohibited."
 fi
@@ -205,7 +205,7 @@ if [[ -n "$DELEGATED_USER" ]]; then
     exit "$E_SUCCESS"
   else
     # Failed to find user attempted to delegate to.
-    fail_with "$E_GENERIC" "GENERIC_ERROR: Delegated user "$DELEGATED_USER" does not exist in delegatedmanagers"
+    fail_with "$E_GENERIC" "GENERIC_ERROR: Delegated user ""$DELEGATED_USER"" does not exist in delegatedmanagers"
   fi
 fi
 
@@ -227,11 +227,11 @@ elif [ -n "$WARN_DISK_MB" ] && [ "$CURRENT_SIZE_MB" -gt "$WARN_DISK_MB" ]; then
   echo "[WARNING] $(get_timestamp) - Storage size at ${CURRENT_SIZE_MB}MB (Limit: ${WARN_DISK_MB}MB)" >>"$LOG_FILE"
 fi
 
-if [$RUN_SCAN -eq 0]; then
+if [ $RUN_SCAN -eq 0 ]; then
   filets=$(date +"%Y%m%d_%H%M%S")
   AUDIT_NAME="${TARGET_FOLDER%/}/sysaudit_${filets}_$$.audit"
   echo "System audit scan by $USER at $(get_timestamp) - Disk usage: ${CURRENT_SIZE_MB}MB" >"$AUDIT_NAME"
-  echo "[INFO] $(get_timestamp) - Data dump generated and saved to ${AUDIT_FILE}" >>"$LOG_FILE"
+  echo "[INFO] $(get_timestamp) - Data dump generated and saved to ${AUDIT_NAME}" >>"$LOG_FILE"
 fi
 if [ $CLEANUP_FLAG -eq 1 ]; then
   RAW_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" 2>/dev/null | wc -l)
