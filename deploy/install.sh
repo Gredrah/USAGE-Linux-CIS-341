@@ -9,14 +9,23 @@ fi
 
 echo "Starting sysaudit daemon installation..."
 
+# Creates dedicated group if it doesn't exist
+if ! grep -q "^delegatedmanagers:" /etc/group; then
+   echo "Creating group: delegatedmanagers"
+   groupadd --system "delegatedmanagers"
+else
+   echo "Group 'delegatedmanagers' already exists."
+
+fi
+
 # Creates auditmanager user if it doesn't exist
 if ! id "auditmanager" &>/dev/null; then
    echo "Creating user: auditmanager"
-   useradd --system --no-create-home --shell /bin/false auditmanager
+   useradd --system --no-create-home --shell /bin/false -g "delegatedmanagers" auditmanager
 else
    echo "User 'auditmanager' already exists."
-
-fi
+   # Ensures auditmanager belongs to the group if the user already existed. 
+   usermod -g "delegatedmanagers" auditmanager
 
 
 # Creates workspace and log directories with correct ownership
@@ -34,6 +43,7 @@ chmod 750 /course_project/audit
 echo "Installing files and configuration"
 cp ../src/sysaudit.sh /usr/local/bin/sysaudit.sh
 cp ../config/sysaudit.cfg /usr/local/bin/sysaudit.cfg
+cp ../src/usage.readme /usr/local/bin/usage.readme
 
 chown root:root /usr/local/bin/sysaudit.sh
 chmod 755 /usr/local/bin/sysaudit.sh
@@ -41,6 +51,8 @@ chmod 755 /usr/local/bin/sysaudit.sh
 chown root:root /usr/local/bin/sysaudit.cfg
 chmod 644 /usr/local/bin/sysaudit.cfg
 
+chown root:root /usr/local/bin/usage.readme
+chmod 644 /usr/local/bin/usage.readme
 
 # Copy systemd files + permissions correction
 echo "Installing systemd server and timer files"
