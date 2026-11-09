@@ -94,8 +94,6 @@ require_numeric() {
   fi
 }
 
-echo "[INFO] $(get_timestamp) - Daemon execution started for workspace ${TARGET_DIR}." >>"$LOG_FILE"
-
 #dump USAGE statement if run manually from the command line w/o args or help flag
 if [[ "$#" -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
   display_help
@@ -234,6 +232,7 @@ if [ ! -d "$TARGET_FOLDER" ]; then
   fail_with "$E_WORKSPACE" "Target workspace $TARGET_FOLDER missing or not a directory."
 fi
 
+echo "[INFO] $(get_timestamp) - Daemon execution started for workspace ${TARGET_DIR}." >>"$LOG_FILE"
 echo "[INFO] $(get_timestamp) - Sleep cycle interval configured to ${SCAN_INTERVAL}s" >>"$LOG_FILE"
 
 #Resource Warning & Ceiling Check
@@ -283,18 +282,18 @@ if [ $CLEANUP_FLAG -eq 1 ]; then
   RETENTION_DAYS=${ARCHIVE_RETENTION_DAYS}
   echo "[INFO] $(get_timestamp) - Pruning archives older than $RETENTION_DAYS days..." >>"$LOG_FILE"
   find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -mtime +"$RETENTION_DAYS" -delete
+fi
 
-  ARCHIVE_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" 2>/dev/null | wc -l | tr -d ' ')
-  echo "[INFO] $(get_timestamp) - Summary: Total compressed archives count: ${ARCHIVE_COUNT}" >>"$LOG_FILE"
+ARCHIVE_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" 2>/dev/null | wc -l | tr -d ' ')
+echo "[INFO] $(get_timestamp) - Summary: Total compressed archives count: ${ARCHIVE_COUNT}" >>"$LOG_FILE"
 
-  if [ "$ARCHIVE_COUNT" -gt 0 ]; then
-    LARGEST_ENTRY=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -printf "%s %p\n" 2>/dev/null | sort -nr | head -n 1)
-    LARGEST_BYTES=$(echo "$LARGEST_ENTRY" | awk '{print $1}')
-    LARGEST_PATH=$(echo "$LARGEST_ENTRY" | cut -d' ' -f2-)
-    LARGEST_NAME=$(basename "$LARGEST_PATH")
-    LARGEST_MTIME=$(stat -c "%y" "$LARGEST_PATH" 2>/dev/null | cut -d'.' -f1)
-    echo "[INFO] $(get_timestamp) - Summary: Largest archive ${LARGEST_NAME} is ${LARGEST_BYTES} bytes (modified: ${LARGEST_MTIME})." >>"$LOG_FILE"
-  fi
+if [ "$ARCHIVE_COUNT" -gt 0 ]; then
+  LARGEST_ENTRY=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -printf "%s %p\n" 2>/dev/null | sort -nr | head -n 1)
+  LARGEST_BYTES=$(echo "$LARGEST_ENTRY" | awk '{print $1}')
+  LARGEST_PATH=$(echo "$LARGEST_ENTRY" | cut -d' ' -f2-)
+  LARGEST_NAME=$(basename "$LARGEST_PATH")
+  LARGEST_MTIME=$(stat -c "%y" "$LARGEST_PATH" 2>/dev/null | cut -d'.' -f1)
+  echo "[INFO] $(get_timestamp) - Summary: Largest archive ${LARGEST_NAME} is ${LARGEST_BYTES} bytes (modified: ${LARGEST_MTIME})." >>"$LOG_FILE"
 fi
 
 echo "[INFO] $(get_timestamp) - Daemon loop completed successfully." >>"$LOG_FILE"
