@@ -4,25 +4,90 @@ USAGE application project for Linux and CIS 341 (System Administration)
 ```text
 USAGE-daemon/
 ├── config/
-│   ├── sysaudit.cfg                     # Default configuration file
-│   └── sysaudit.cfg.example             # Fully documented template
-├── cron/                              # Automated cron jobs related to the system
+│   └── sysaudit.cfg                     # Default configuration file
 ├── deploy/                            # The "installation" folder that contains set up scripts.
+|   ├── uninstall.sh                   # Automated removal of users and directories (optionally, with -p flag)
 │   └── install.sh                     # Automated deploy script creating dirs & users, "run once" philosophy
 |                                      # Potentially more files relating to user set up due to our modular assignment of responsibility
-├── audit/                             # Log files as per project instructions
 ├── docs/                              # "Presentation"/Docs
-│   ├── ARCHITECTURE.?                 # Component diagrams, data flow, pipeline maps
-│   ├── BOTTLENECKS.?                  # Performance profiling & optimization analysis
-│   ├── PRESENTATION.?                 # Final presentation slide deck
+│   ├── ARCHITECTURE.png               # Component diagrams, data flow, pipeline maps
+│   ├── PRESENTATION.pdf               # Final presentation slide deck
 │   └── screenshots/                   # Verification proofs, test runs, CLI traces
 ├── src/                               # USAGE engine main.sh and other files
-├── systemd/                           # Systemd.service and .timer files if we do not use cron to run the automated jobs
+|   └── sysaudit.sh                    # Main usage engine script
+├── systemd/                           # Systemd.service and .timer files.
+|   ├── systemd.service
+|   └── systemd.timer
 ├── tests/                             # Testing suites within
 ├── .gitignore                         # Add any undesired files here, they will be excluded from upload
-├── Makefile                           # If necessary / desired
 └── README.md                          # Quickstart, project overview
 ```
+## TO USERS
+This script serves as a simple health monitor over time for linux systems, designed for CIS 341. The script produces logs every 3 days as a daemon upon installation labeled `sysaudit` in systemd, and manually on run by delegated users. 
+
+### Installing
+Clone the repository to /tmp/ or any other desired directory,
+```
+cd /tmp/
+git clone https://github.com/Gredrah/USAGE-Linux-CIS-341.git -o USAGEd
+```
+Enter the repository, and navigate to /USAGEd/deploy/
+```
+cd USAGEd/deploy
+chmod +x install.sh
+sudo ./install.sh
+```
+This will install the daemon under `/usr/local/bin/USAGEd/` with default workspace at `/course_project/audit`.
+
+### Use
+The usage readme is available by running the daemon with no options, -h, or --help.
+
+#### Config
+Config should not be altered prior to installation, as this is not tested.
+
+Post-installation, config is available at `/usr/local/bin/USAGEd/config/sysaudit.cfg`
+
+#### Assigning managers
+The auditmanager role is held primarily by the Usage Daemon, however, its username can be invoked to delegate managers.
+```
+sudo /usr/local/bin/USAGEd/src/sysaudit.sh --delegate <USER>
+```
+This keeps the privilege of maintaining the system with the desired admins (permissions can be further delegated through sudoers) while maintaining security and rejecting running the daemon as root.
+
+#### Running
+The daemon is configured to run every 3 days at midnight as per `/etc/systemd/system/sysaudit.service` and `/etc/systemd/system/sysaudit.timer`. However, to run the daemon manually, a delegatedmanager (or a sudo user as auditmanager) may invoke the -r, --run or --scan commands for a simple scan and output.
+
+```
+./usr/local/bin/USAGEd/src/sysaudit.sh -r
+```
+
+### Uninstalling
+
+If you no longer have the repository cloned, re-clone it to /tmp/
+```
+cd /tmp/
+git clone https://github.com/Gredrah/USAGE-Linux-CIS-341.git -o USAGEd
+```
+Enter the repository, and navigate to /USAGEd/deploy/
+```
+cd USAGEd/deploy
+chmod +x uninstall.sh
+```
+This script will uninstall the daemon under `/usr/local/bin/USAGEd/` and remove its associated users. Audit files are only removed if -p or --purge option is used with uninstall
+```
+sudo ./uninstall.sh
+```
+```
+sudo ./uninstall.sh --purge
+```
+
+### Testing Suite
+If you wish to run the testing suite, navigate to `USAGEd/tests/suites/` and run:
+```
+chmod +x ./tests_main.sh
+sudo ./tests_main.sh all
+```
+BATS testing suite was used.
 
 ## TO GROUP MEMBERS
 
