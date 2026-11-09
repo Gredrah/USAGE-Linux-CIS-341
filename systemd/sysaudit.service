@@ -2,15 +2,15 @@
 [Unit]
 Description=System Health Monitor & Security Daemon
 After=network.target
+StartLimitIntervalSec=60s
+StartLimitBurst=3
 
 [Service]
 Type=simple
 User=auditmanager
-ExecStart=/usr/local/bin/sysaudit.sh
+ExecStart=/usr/local/bin/USAGEd/sysaudit.sh --scan --cleanup
 Restart=on-failure
 RestartSec=10s
-StartLimitIntervalSec=60s
-StartLimitBurst=3
 
 [Install]
 WantedBy=multi-user.target
