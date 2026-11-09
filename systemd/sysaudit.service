@@ -8,7 +8,7 @@ StartLimitBurst=3
 [Service]
 Type=simple
 User=auditmanager
-ExecStart=/usr/local/bin/USAGEd/sysaudit.sh --scan --cleanup
+ExecStart=/usr/local/bin/USAGEd/src/sysaudit.sh --scan --cleanup
 Restart=on-failure
 RestartSec=10s
 
