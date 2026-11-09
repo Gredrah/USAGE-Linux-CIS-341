@@ -64,7 +64,7 @@ EOF
 
   populate_config "${ALT_CFG}"
 
-  run "${MOCK_ENGINE}" --config "${ALT_CFG}" --audit-dir "${ALT_WORKSPACE}"
+  run "${MOCK_ENGINE}" --config "${ALT_CFG}" --workspace "${ALT_WORKSPACE}"
 
   exit_success "$status"
   # Check that the alternate workspace exists in the log
