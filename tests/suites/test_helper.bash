@@ -96,41 +96,40 @@ mock_user() {
 
   id() {
     case "$1" in
-      -un)
-        echo "${MOCKED_USER}"
+    -un)
+      echo "${MOCKED_USER}"
+      return 0
+      ;;
+    -u)
+      if [[ "${MOCKED_USER}" == "root" ]]; then
+        echo "0"
+      else
+        echo "1000"
+      fi
+      return 0
+      ;;
+    -nG)
+      local check_user="${2:-$MOCKED_USER}"
+      local groups="users"
+      if [[ "${check_user}" == "auditmanager" ]] || grep -qx "${check_user}" "${MOCK_GROUP_FILE}" 2>/dev/null; then
+        groups="${groups} delegatedmanagers"
+      fi
+      echo "${groups}"
+      return 0
+      ;;
+    *)
+      if [[ -n "$1" && "$1" != -* ]]; then
+        echo "uid=1001($1) gid=1001($1) groups=1001($1)"
         return 0
-        ;;
-      -u)
-        if [[ "${MOCKED_USER}" == "root" ]]; then
-          echo "0"
-        else
-          echo "1000"
-        fi
-        return 0
-        ;;
-      -nG)
-        local check_user="${2:-$MOCKED_USER}"
-        local groups="users"
-        if [[ "${check_user}" == "auditmanager" ]] || grep -qx "${check_user}" "${MOCK_GROUP_FILE}" 2>/dev/null; then
-          groups="${groups} delegatedmanagers"
-        fi
-        echo "${groups}"
-        return 0
-        ;;
-      *)
-        if [[ -n "$1" && "$1" != -* ]]; then
-          echo "uid=1001($1) gid=1001($1) groups=1001($1)"
-          return 0
-        fi
-        command id "$@"
-        ;;
+      fi
+      command id "$@"
+      ;;
     esac
   }
 
-  }
   usermod() {
     local delegated_target="${!#}"
-    echo "${delegated_target}" >> "${MOCK_GROUP_FILE}"
+    echo "${delegated_target}" >>"${MOCK_GROUP_FILE}"
     return 0
   }
   chgrp() {
