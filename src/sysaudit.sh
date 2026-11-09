@@ -8,44 +8,13 @@ E_CONFIG=3
 E_WORKSPACE=4
 E_CEILING=5
 
-CONFIG_FILE="$(dirname "$0")/../config/sysaudit.cfg"
-TS="$(date '+%Y-%m-%d %H:%M:%S')"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_CONFIG="${SCRIPT_DIR}/../config/sysaudit.cfg"
+CONFIG_FILE="${CONFIG_FILE:-$DEFAULT_CONFIG}"
 
 get_timestamp() {
   date '+%Y-%m-%d %H:%M:%S'
 }
-
-# Function for Exits & Logging
-fail_with() {
-  local code=$1
-  local message=$2
-  local ts
-  ts=$(get_timestamp)
-  echo "[ERROR] $ts - $message" >&2
-  if [ -n "$LOG_FILE" ]; then
-    echo "[ERROR] ${ts} - Terminated with code $code: $message" >>"$LOG_FILE"
-  fi
-  exit "$code"
-}
-
-# Configuration Loading
-if [ ! -f "$CONFIG_FILE" ]; then
-  fail_with "$E_CONFIG" "Configuration file $CONFIG_FILE not found."
-fi
-source "$CONFIG_FILE"
-
-LOG_FILE="${LOG_FILE:-/var/log/sysaudit_daemon.log}"
-TARGET_DIR="${AUDIT_DIR:-${TARGET_DIR:-$TARGET_FOLDER}}"
-TARGET_FOLDER="$TARGET_DIR"
-
-# User Execution Space Sandboxing
-USER=$(id -un)
-if [ "$USER" != "auditmanager" ]; then
-  if ! id -nG "$USER" 2>/dev/null | grep -qw "delegatedmanagers"; then
-    fail_with "$E_IDENTITY" "Privilege violation: Process must execute as auditmanager, or by a delegatedmanager."
-  fi
-fi
-echo "Security Check passed! Welcome $USER."
 
 #detailed help statement and dumpin stuff
 display_help() {
@@ -73,6 +42,8 @@ PARAMETER OPTIONS & EXECUTION EXAMPLES:
   sysaudit --warn 50               # Override baseline storage limit to 50MB for this loop
   sysaudit -m 100                  
   sysaudit --max 100               # Override max storage limit to 100MB for this loop.
+  sysaudit --config                # Provide an alternate config file to the default
+  sysaudit --workspace             # Provide an alternate audit directory to the default
 
 
 SAMPLE RESULTS & LOGS:
@@ -102,6 +73,19 @@ ERROR CODE DICTIONARY:
 EOF
 }
 
+# Function for Exits & Logging
+fail_with() {
+  local code=$1
+  local message=$2
+  local ts
+  ts=$(get_timestamp)
+  echo "[ERROR] $ts - $message" >&2
+  if [ -n "$LOG_FILE" ]; then
+    echo "[ERROR] ${ts} - Terminated with code $code: $message" >>"$LOG_FILE"
+  fi
+  exit "$code"
+}
+
 #dump USAGE statement if run manually from the command line w/o args or help flag
 if [[ "$#" -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
   display_help
@@ -109,18 +93,35 @@ if [[ "$#" -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
 fi
 
 #auditmanager permissions delegation section
+CLI_WARN_DISK_MB=""
+CLI_MAX_DISK_MB=""
+CLI_AUDIT_DIR=""
+CLI_CONFIG_FILE=""
 DELEGATED_USER=""
-CLEANUP_ONLY=0
+CLEANUP_FLAG=0
+RUN_SCAN=0
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
+  -h | --help)
+    display_help
+    exit 0
+    ;;
+  --config)
+    CLI_CONFIG_FILE="$2"
+    shift 2
+    ;;
+  --workspace)
+    CLI_AUDIT_DIR="$2"
+    shift 2
+    ;;
   -w | --warn)
-    WARN_DISK_MB="$2"
+    CLI_WARN_DISK_MB="$2"
     shift 2
     ;;
   -m | --max | --limit)
     #secure role delegation and autonomy allocation bit
-    MAX_DISK_MB="$2"
+    CLI_MAX_DISK_MB="$2"
     shift 2
     ;;
   -d | --delegate)
@@ -128,10 +129,11 @@ while [[ "$#" -gt 0 ]]; do
     shift 2
     ;;
   -r | --run | --scan)
+    RUN_SCAN=1
     shift 1
     ;;
   -c | --cleanup)
-    CLEANUP_ONLY=1
+    CLEANUP_FLAG=1
     shift 1
     ;;
   *)
@@ -141,8 +143,51 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
+if [ -n "$CLI_CONFIG_FILE" ]; then
+  CONFIG_FILE="${CLI_CONFIG_FILE}"
+fi
+
+# Configuration Loading
+if [ ! -f "$CONFIG_FILE" ] || ! source "$CONFIG_FILE" 2>/dev/null; then
+  fail_with "$E_CONFIG" "Configuration file $CONFIG_FILE not found, or invalid configuration."
+fi
+
+#Apply remaining CLI Flag overrides over sysaudit.cfg
+if [ -n "$CLI_AUDIT_DIR" ]; then
+  AUDIT_DIR="$CLI_AUDIT_DIR"
+fi
+if [ -n "$CLI_WARN_DISK_MB" ]; then
+  WARN_DISK_MB="$CLI_WARN_DISK_MB"
+fi
+if [ -n "$CLI_MAX_DISK_MB" ]; then
+  MAX_DISK_MB="$CLI_MAX_DISK_MB"
+fi
+
+LOG_FILE="${LOG_FILE:-/var/log/sysaudit_daemon.log}"
+TARGET_DIR="$AUDIT_DIR"
+TARGET_FOLDER="$TARGET_DIR"
+
+# User Execution Space Sandboxing
+USER=$(id -un)
+if [ "$USER" == "root" || [ "$(id -u)" -eq 0 ] || [ -n "$SUDO_USER" ]; then
+  echo "[WARN] $(get_timestamp) - security check blocked root/sudo access attempt by $USER" >>"$LOG_FILE" 2>/dev/null
+  fail_with "$E_IDENTITY" "Privilege Violation: Execution as root/sudo is prohibited."
+fi
+
+if [ "$USER" != "auditmanager" ]; then
+  if ! id -nG "$USER" 2>/dev/null | grep -qw "delegatedmanagers"; then
+    echo "[WARN] $(get_timestamp) - security check blocked unauthorized user $USER" >>"$LOG_FILE" 2>/dev/null
+    fail_with "$E_IDENTITY" "Privilege violation: Process must execute as auditmanager, or by a delegatedmanager."
+  fi
+fi
+echo "Security Check passed! Welcome $USER."
+
 # Apply the delegation logic if the argument was passed
 if [[ -n "$DELEGATED_USER" ]]; then
+  if [ "$USER" != "auditmanager" ]; then
+    echo "[INFO] $(get_timestamp) - unauthorized delegation attempt by $USER" >>"$LOG_FILE"
+    fail_with "$E_IDENTITY" "IDENTITY_VIOLATION: Only auditmanager can delegate access"
+  fi
 
   # Verify the user exists on the system
   if id "$DELEGATED_USER" &>/dev/null; then
@@ -151,16 +196,16 @@ if [[ -n "$DELEGATED_USER" ]]; then
     usermod -aG delegatedmanagers "$DELEGATED_USER" 2>/dev/null
 
     #Change the group ownership of the workspace directory recursively
-    chgrp -R delegatedmanagers "$TARGET_DIR" 2>/dev/null
+    chgrp -R delegatedmanagers "$TARGET_DIR" "$LOG_FILE" 2>/dev/null
 
     #Grant read, write, and execute permissions to the new group
-    chmod -R g+rwx "$TARGET_DIR" 2>/dev/null
+    chmod -R g+rwx "$TARGET_DIR" "$LOG_FILE" 2>/dev/null
 
     echo "[INFO] $(get_timestamp) Delegation successful. Workspace $TARGET_DIR is now accessible by $DELEGATED_USER." | tee -a "$LOG_FILE"
     exit "$E_SUCCESS"
   else
-    # Trap the issue and document properly
-    fail_with "$E_GENERIC" "GENERIC_ERROR: Delegated user '$DELEGATED_USER' does not exist in delegatedmanagers"
+    # Failed to find user attempted to delegate to.
+    fail_with "$E_GENERIC" "GENERIC_ERROR: Delegated user "$DELEGATED_USER" does not exist in delegatedmanagers"
   fi
 fi
 
@@ -170,46 +215,58 @@ if [ ! -d "$TARGET_FOLDER" ]; then
 fi
 
 echo "[INFO] $(get_timestamp) - Daemon execution started." >>"$LOG_FILE"
+echo "[INFO] $(get_timestamp) - Sleep cycle interval configured to ${SCAN_INTERVAL}s" >>"$LOG_FILE"
 
 #Resource Warning & Ceiling Check
 CEILING_LIMIT_MB=${MAX_DISK_MB}
 CURRENT_SIZE_MB=$(du -sm "$TARGET_FOLDER" 2>/dev/null | cut -f1)
 
 if [ -n "$CEILING_LIMIT_MB" ] && [ "$CURRENT_SIZE_MB" -gt "$CEILING_LIMIT_MB" ]; then
-  fail_with "E_CEILING" "Disk ceiling reached: ${CURRENT_SIZE_MB}MB exceeds limit of ${CEILING_LIMIT_MB}MB"
-elif [ -n "WARN_DISK_MB" ] && [ "$CURRENT_SIZE_MB" -gt "WARN_DISK_MB" ]; then
+  fail_with "$E_CEILING" "Disk ceiling reached: ${CURRENT_SIZE_MB}MB exceeds limit of ${CEILING_LIMIT_MB}MB"
+elif [ -n "$WARN_DISK_MB" ] && [ "$CURRENT_SIZE_MB" -gt "$WARN_DISK_MB" ]; then
   echo "[WARNING] $(get_timestamp) - Storage size at ${CURRENT_SIZE_MB}MB (Limit: ${WARN_DISK_MB}MB)" >>"$LOG_FILE"
 fi
 
-# Compress and Cleanup
-ARCHIVE_DIR="${TARGET_FOLDER%/}archives/"
-mkdir -p "$ARCHIVE_DIR"
-
-if [ "$CLEANUP_ONLY" -eq 0]; then
-  RAW_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" | wc -l)
+if [$RUN_SCAN -eq 0]; then
+  filets=$(date +"%Y%m%d_%H%M%S")
+  AUDIT_NAME="${TARGET_FOLDER%/}/sysaudit_${filets}_$$.audit"
+  echo "System audit scan by $USER at $(get_timestamp) - Disk usage: ${CURRENT_SIZE_MB}MB" >"$AUDIT_NAME"
+  echo "[INFO] $(get_timestamp) - Data dump generated and saved to ${AUDIT_FILE}" >>"$LOG_FILE"
+fi
+if [ $CLEANUP_FLAG -eq 1 ]; then
+  RAW_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" 2>/dev/null | wc -l)
 
   if [ "$RAW_COUNT" -gt 0 ]; then
-    TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-    ARCHIVE_NAME="${ARCHIVE_DIR}audit_archive_${TIMESTAMP}.tar.gz"
+    ARCHIVE_NAME="${TARGET_FOLDER%/}/audit_archive_${filets}.tar.gz"
 
-    echo "[INFO] $(get_timestamp) - Found $RAW_COUNT raw audit files. Packaging into archive." >>"$LOG_FILE"
+    echo "[INFO] $(get_timestamp) - Found $RAW_COUNT raw audit files. Packaging into $ARCHIVE_NAME" >>"$LOG_FILE"
 
-    # Compress raw files into tar.gz package
-    find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" -print0 | tar --null -czf "$ARCHIVE_NAME" --files-from -
-
-    if [ $? -eq 0 ]; then
-      echo "[INFO] $(get_timestamp) - Compression successful. Deleting individual raw source files." >>"$LOG_FILE"
+    if find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" -print0 | tar --null -czf "$ARCHIVE_NAME" --files-from - 2>/dev/null; then
+      echo "[INFO] $(get_timestamp) - Compression successful. Deleting individual raw .audit logs." >>"$LOG_FILE"
       find "$TARGET_FOLDER" -maxdepth 1 -name "*.audit" -delete
     else
+      rm -rf "$ARCHIVE_NAME" 2>/dev/null
       echo "[ERROR] $(get_timestamp) - Compression failed. Raw files preserved." >>"$LOG_FILE"
     fi
   fi
 fi
 
 # Automated Storage Pruning
-RETENTION_DAYS=$((${RETENTION_WEEKS:-2} * 7))
+RETENTION_DAYS=${ARCHIVE_RETENTION_DAYS}
 echo "[INFO] $(get_timestamp) - Pruning archives older than $RETENTION_DAYS days..." >>"$LOG_FILE"
-find "$ARCHIVE_DIR" -name "*.tar.gz" -mtime +"$RETENTION_DAYS" -delete
+find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -mtime +"$RETENTION_DAYS" -delete
+
+ARCHIVE_COUNT=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" 2>/dev/null | wc -l | tr -d ' ')
+echo "[INFO] $(get_timestamp) - Summary: Total compressed archives count: ${ARCHIVE_COUNT}" >>"$LOG_FILE"
+
+if [ "$ARCHIVE_COUNT" -gt 0 ]; then
+  LARGEST_ENTRY=$(find "$TARGET_FOLDER" -maxdepth 1 -name "*.tar.gz" -printf "%s %p\n" 2>/dev/null | sort -nr | head -n 1)
+  LARGEST_BYTES=$(echo "$LARGEST_ENTRY" | awk '{print $1}')
+  LARGEST_PATH=$(echo "$LARGEST_ENTRY" | cut -d' ' -f2-)
+  LARGEST_NAME=$(basename "$LARGEST_PATH")
+  LARGEST_MTIME=$(stat -c "%y" "$LARGEST_PATH" 2>/dev/null | cut -d'.' -f1)
+  echo "[INFO] $(get_timestamp) - Summary: Largest archive ${LARGEST_NAME} is ${LARGEST_BYTES} bytes (modified: ${LARGEST_MTIME})." >>"$LOG_FILE"
+fi
 
 echo "[INFO] $(get_timestamp) - Daemon loop completed successfully." >>"$LOG_FILE"
 exit "$E_SUCCESS"
